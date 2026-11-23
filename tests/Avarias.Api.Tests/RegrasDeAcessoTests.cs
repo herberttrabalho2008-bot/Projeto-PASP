@@ -37,7 +37,12 @@ public class RegrasDeAcessoTests : IClassFixture<ApiFactory>
         db.ContasAuth.Add(new ContaAuth { Id = id, Email = email });
         if (comPerfil)
         {
-            var tipo = (await db.TiposUtilizador.ToListAsync()).First(t => Textos.PerfilDe(t.Descricao) == perfil);
+            var tipo = (await db.TiposUtilizador.ToListAsync()).FirstOrDefault(t => Textos.PerfilDe(t.Descricao) == perfil);
+            if (tipo is null)
+            {
+                tipo = new TipoUtilizador { Id = Guid.NewGuid(), Descricao = Textos.TextoPerfil(perfil) };
+                db.TiposUtilizador.Add(tipo);
+            }
             db.Utilizadores.Add(new Utilizador { Id = id, NomeUtilizador = email, PermissaoId = tipo.Id });
         }
         await db.SaveChangesAsync();
@@ -115,18 +120,18 @@ public class RegrasDeAcessoTests : IClassFixture<ApiFactory>
         // O técnico não regista avarias; o professor e a biblioteca não mudam o estado.
         var form = new MultipartFormDataContent { { new StringContent("Texto com mais de dez letras"), "descricao" }, { new StringContent(eq.ToString()), "equipamentoId" } };
         Assert.Equal(HttpStatusCode.Forbidden, (await tecnico.PostAsync("/api/avarias", form)).StatusCode);
-        var emAnalise = await EstadoId("em-analise");
-        Assert.Equal(HttpStatusCode.Forbidden, (await Atualizar(autor, id, emAnalise)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await Atualizar(biblioteca, id, emAnalise)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await Atualizar(tecnico, id, emAnalise)).StatusCode);
+        var emResolucao = await EstadoId("em-resolucao");
+        Assert.Equal(HttpStatusCode.Forbidden, (await Atualizar(autor, id, emResolucao)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Atualizar(biblioteca, id, emResolucao)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Atualizar(tecnico, id, emResolucao)).StatusCode);
 
         // Resolvida exige resolução escrita; cada alteração fica no histórico.
-        var resolvido = await EstadoId("resolvido");
+        var resolvido = await EstadoId("resolvida");
         Assert.Equal(HttpStatusCode.BadRequest, (await Atualizar(tecnico, id, resolvido)).StatusCode);
         var ok = await Atualizar(tecnico, id, resolvido, "Lâmpada do projetor substituída.");
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
         var d = (await ok.Content.ReadFromJsonAsync<Detalhe>())!;
-        Assert.Equal("resolvido", d.Estado.Chave);
+        Assert.Equal("resolvida", d.Estado.Chave);
         Assert.Equal(3, d.Historico.Count);
     }
 

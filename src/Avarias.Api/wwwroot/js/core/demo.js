@@ -18,7 +18,7 @@ const proibido = () => erro(403, 'Não tem permissão para realizar esta ação.
 
 // ------------------------------------------------------------------ dados iniciais
 function semente() {
-  const estados = ['Pendente', 'Em análise', 'Em resolução', 'Resolvido'].map((d, i) => ({ id: `est-${i + 1}`, descricao: d }));
+  const estados = ['Pendente', 'Em resolução', 'Resolvida', 'Cancelada'].map((d, i) => ({ id: `est-${i + 1}`, descricao: d }));
   const tipos = ['Computador', 'Projetor', 'Quadro interativo', 'Impressora', 'Rede'].map((d, i) => ({ id: `tipo-${i + 1}`, descricao: d }));
   const salas = [
     { nrSala: '101', tipoSala: 'Sala de aula' },
@@ -46,7 +46,7 @@ function semente() {
   const avaria = ({ equip, autor, horas, descricao, estado = 'est-1', resolucao = null }) => {
     const a = {
       id: novoId(), descricao, idEquipamento: equipamentos[equip].id, autorId: autor, dataAvaria: horasAtras(horas),
-      estadoId: estado, resolucao, dataResolucao: estado === 'est-4' ? horasAtras(horas - 2) : null, historico: [],
+      estadoId: estado, resolucao, dataResolucao: estado === 'est-3' ? horasAtras(horas - 2) : null, historico: [],
     };
     a.historico.push({ id: novoId(), detalhes: 'Avaria registada', estado: 'Pendente', utilizadorId: autor, data: a.dataAvaria });
     if (estado !== 'est-1') {
@@ -57,9 +57,9 @@ function semente() {
   };
   avaria({ equip: 0, autor: 'u-prof', horas: 2, descricao: 'O projetor não dá sinal desde a primeira aula. Já troquei o cabo e continua igual.' });
   avaria({ equip: 5, autor: 'u-bib', horas: 26, estado: 'est-2', descricao: 'O computador junto à janela não liga à rede desde ontem à tarde.' });
-  avaria({ equip: 2, autor: 'u-prof', horas: 50, estado: 'est-3', descricao: 'O quadro interativo não reconhece o toque na parte de baixo.' });
+  avaria({ equip: 2, autor: 'u-prof', horas: 50, estado: 'est-4', descricao: 'O quadro interativo não reconhece o toque na parte de baixo.' });
   avaria({ equip: 6, autor: 'u-bib', horas: 72, descricao: 'A impressora encrava o papel a cada duas ou três folhas.' });
-  avaria({ equip: 3, autor: 'u-prof', horas: 200, estado: 'est-4', descricao: 'Várias teclas do teclado ficam presas.', resolucao: 'Teclado substituído por um novo.' });
+  avaria({ equip: 3, autor: 'u-prof', horas: 200, estado: 'est-3', descricao: 'Várias teclas do teclado ficam presas.', resolucao: 'Teclado substituído por um novo.' });
 
   return { estados, tipos, salas, equipamentos, utilizadores, avarias };
 }
@@ -80,7 +80,7 @@ const guardar = () => {
 // ------------------------------------------------------------------ conversões (mesmo formato da API)
 const estadoDto = (id) => {
   const e = D.estados.find((x) => x.id === id);
-  return e ? { id: e.id, descricao: e.descricao, chave: chave(e.descricao) } : null;
+  return e ? { id: e.id, descricao: e.descricao, chave: chave(e.descricao), resolvido: ['resolvida', 'resolvido'].includes(chave(e.descricao)) } : null;
 };
 const tipoDe = (id) => D.tipos.find((t) => t.id === id)?.descricao ?? null;
 const equipDto = (q) => ({ id: q.id, descricao: q.descricao, nrSerie: q.nrSerie, idTipo: q.idTipo, tipo: tipoDe(q.idTipo) });
@@ -196,13 +196,13 @@ function responder(path, metodo, payload) {
         const e = estadoDto(novoEstado);
         mudancas.push(`Estado: ${estadoDto(a.estadoId)?.descricao ?? '—'} → ${e.descricao}`);
         a.estadoId = novoEstado;
-        a.dataResolucao = e.chave === 'resolvido' ? agora : null;
+        a.dataResolucao = e.resolvido ? agora : null;
       }
       if (resolucao !== (a.resolucao ?? '')) {
         mudancas.push(a.resolucao ? 'Resolução atualizada' : 'Resolução registada');
         a.resolucao = resolucao || null;
       }
-      if (estadoDto(a.estadoId)?.chave === 'resolvido' && !a.resolucao) {
+      if (estadoDto(a.estadoId)?.resolvido && !a.resolucao) {
         return erro(400, 'Para marcar como resolvida, registe a resolução (o que foi feito).');
       }
       if (mudancas.length) {

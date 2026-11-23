@@ -189,7 +189,7 @@ public class AvariasController : ControllerBase
             mudancas.Add($"Estado: {a.Estado?.DescEstado ?? "—"} → {novo.DescEstado}");
             a.EstadoId = novo.Id;
             a.Estado = novo;
-            a.DataResolucao = Textos.Chave(novo.DescEstado) == Textos.EstadoResolvido ? agora : null;
+            a.DataResolucao = Textos.EResolvido(novo.DescEstado) ? agora : null;
         }
 
         if (f.Resolucao is not null)
@@ -210,7 +210,7 @@ public class AvariasController : ControllerBase
             mudancas.Add("Fotografia da resolução adicionada");
         }
 
-        if (Textos.Chave(a.Estado?.DescEstado) == Textos.EstadoResolvido && string.IsNullOrWhiteSpace(a.DescResolucao))
+        if (Textos.EResolvido(a.Estado?.DescEstado) && string.IsNullOrWhiteSpace(a.DescResolucao))
             return BadRequest(new { message = "Para marcar como resolvida, registe a resolução (o que foi feito)." });
 
         if (mudancas.Count > 0)

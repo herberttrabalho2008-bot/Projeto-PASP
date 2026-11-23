@@ -9,7 +9,9 @@ const ESTADO_CLS = {
   pendente: 'estado-pendente',
   'em-analise': 'estado-analise',
   'em-resolucao': 'estado-resolucao',
+  resolvida: 'estado-resolvido',
   resolvido: 'estado-resolvido',
+  cancelada: 'estado-cancelado',
 };
 
 /**

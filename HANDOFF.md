@@ -4,6 +4,8 @@ Estado do projeto a 23/11/2026, para continuar numa conversa nova. Ler também o
 
 Repositório: https://github.com/herberttrabalho2008-bot/Projeto-PASP (ramo `main`).
 
+Lista do que falta: [TODO.md](TODO.md).
+
 ## O que é
 
 Aplicação web em português de Portugal para registar e gerir avarias de equipamentos nas salas da escola (Agrupamento de Escolas de Lousada). Login obrigatório, três perfis:

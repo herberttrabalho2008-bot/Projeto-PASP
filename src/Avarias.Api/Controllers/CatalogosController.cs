@@ -36,12 +36,13 @@ public class CatalogosController : ControllerBase
     public static EquipamentoDto ParaDto(Equipamento e) =>
         new(e.Id, e.DescEquipamento, e.NrSerie, e.IdTipo, e.Tipo?.DescTipo);
 
-    public static EstadoDto ParaDto(EstadoAvaria e) => new(e.Id, e.DescEstado, Textos.Chave(e.DescEstado));
+    public static EstadoDto ParaDto(EstadoAvaria e) =>
+        new(e.Id, e.DescEstado, Textos.Chave(e.DescEstado), Textos.EResolvido(e.DescEstado));
 
-    /// <summary>Pendente, Em análise, Em resolução, Resolvido primeiro; outros estados depois, por nome.</summary>
+    /// <summary>Pela ordem de Textos.OrdemEstados; outros estados depois, por nome.</summary>
     public static IEnumerable<EstadoAvaria> OrdenarEstados(IEnumerable<EstadoAvaria> estados)
     {
-        var ordem = Textos.EstadosBase.Select(Textos.Chave).ToList();
+        var ordem = Textos.OrdemEstados.ToList();
         return estados
             .OrderBy(e => ordem.IndexOf(Textos.Chave(e.DescEstado)) is var i && i >= 0 ? i : int.MaxValue)
             .ThenBy(e => e.DescEstado);

@@ -1,8 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <!-- TargetFramework, Nullable e ImplicitUsings vêm de Directory.Build.props (raiz do projeto). -->
   <PropertyGroup>
     <RootNamespace>Avarias.Api</RootNamespace>
+    <UserSecretsId>436ca7b2-727d-4997-8dde-421aae17ada1</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

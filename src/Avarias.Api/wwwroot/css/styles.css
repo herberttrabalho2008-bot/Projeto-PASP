@@ -255,6 +255,7 @@ textarea.input { min-height: 96px; resize: vertical; }
 .estado-analise { background: var(--info-bg); color: var(--info-fg); }
 .estado-resolucao { background: var(--warning-bg); color: var(--warning-fg); }
 .estado-resolvido { background: var(--success-bg); color: var(--success-fg); }
+.estado-cancelado { background: var(--surface-0); color: var(--ink-700); box-shadow: inset 0 0 0 1px var(--line-300); }
 .u-baixa, .u-media, .u-alta { padding: 0; color: var(--ink-700); }
 .u-baixa::before, .u-media::before, .u-alta::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-500); }
 .u-media::before { background: var(--warning-dot); }

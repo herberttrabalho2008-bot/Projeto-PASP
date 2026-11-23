@@ -1,4 +1,4 @@
-# Modo demo: só o frontend, com a API simulada no browser (sem base de dados).
+﻿# Modo demo: só o frontend, com a API simulada no browser (sem base de dados).
 # Abrir http://localhost:5173/login.html?demo=1
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent $PSScriptRoot

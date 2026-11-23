@@ -38,10 +38,16 @@ public static class Textos
     };
 
     public const string EstadoInicial = "pendente";
-    public const string EstadoResolvido = "resolvido";
+
+    /// <summary>"Resolvida" ou "Resolvido": exige resolução escrita e marca a data de resolução.</summary>
+    public static bool EResolvido(string? estado) => Chave(estado) is "resolvida" or "resolvido";
 
     /// <summary>Estados criados se a tabela estados_avarias estiver vazia.</summary>
-    public static readonly string[] EstadosBase = { "Pendente", "Em análise", "Em resolução", "Resolvido" };
+    public static readonly string[] EstadosBase = { "Pendente", "Em resolução", "Resolvida", "Cancelada" };
+
+    /// <summary>Ordem de apresentação; estados que não estejam aqui aparecem no fim, por nome.</summary>
+    public static readonly string[] OrdemEstados =
+        { "pendente", "em-analise", "em-resolucao", "resolvida", "resolvido", "cancelada", "cancelado" };
 
     public static bool EBiblioteca(string? tipoSala) => Chave(tipoSala) == "biblioteca";
 }

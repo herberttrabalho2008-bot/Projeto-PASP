@@ -75,7 +75,7 @@ async function guardarGestao(e) {
   const estado = ESTADOS.find((x) => x.id === $('g-estado').value);
   const resolucao = $('g-res').value.trim();
   const foto = $('g-foto').files[0];
-  if (estado?.chave === 'resolvido' && !resolucao) {
+  if (estado?.resolvido && !resolucao) {
     return mostrar($('gestao-erro'), 'Para marcar como resolvida, registe a resolução (o que foi feito).');
   }
   if (foto && foto.size > MAX_FOTO) return mostrar($('gestao-erro'), 'A fotografia é demasiado grande (máximo 5 MB).');

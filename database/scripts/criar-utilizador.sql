@@ -15,7 +15,7 @@
 insert into public.utilizadores (id, nome_utilizador, permissao_id)
 select u.id,
        'Nome Apelido',
-       (select t.id from public.tipos_utilizador t where t.tipo_utilizador = 'Técnico')
+       (select t.id from public.tipos_utilizador t where t.tipo_utilizador in ('Técnico', 'Tecnico') limit 1)
 from auth.users u
 where u.email = lower(trim('nome@escola.pt'))
 on conflict (id) do update

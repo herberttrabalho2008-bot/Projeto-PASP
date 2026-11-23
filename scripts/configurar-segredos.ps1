@@ -1,4 +1,4 @@
-# Guarda a ligação à base de dados e as chaves do Supabase em dotnet user-secrets (fora do projeto).
+﻿# Guarda a ligação à base de dados e as chaves do Supabase em dotnet user-secrets (fora do projeto).
 # Uso (na raiz do projeto): .\scripts\configurar-segredos.ps1
 #
 # Onde encontrar cada valor no Supabase:

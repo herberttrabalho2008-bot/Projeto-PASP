@@ -1,8 +1,9 @@
 namespace Avarias.Api.Dtos;
 
 // Catálogos: salas com equipamentos, tipos de equipamento e estados
-/// <summary>Chave = descrição sem acentos ("em-analise"), usada no frontend para as cores.</summary>
-public record EstadoDto(Guid Id, string Descricao, string Chave);
+/// <summary>Chave = descrição sem acentos ("em-resolucao"), usada no frontend para as cores.
+/// Resolvido = estado final que exige resolução escrita ("Resolvida").</summary>
+public record EstadoDto(Guid Id, string Descricao, string Chave, bool Resolvido);
 public record TipoEquipamentoDto(Guid Id, string Descricao);
 public record EquipamentoDto(Guid Id, string Descricao, string? NrSerie, Guid? IdTipo, string? Tipo);
 public record SalaDto(string NrSala, string TipoSala, bool EBiblioteca, List<EquipamentoDto> Equipamentos);

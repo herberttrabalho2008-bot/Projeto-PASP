@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestão de Avarias</title>
+  <script>
+    // Entrada da aplicação: com sessão guardada vai ao painel, senão ao login.
+    location.replace(localStorage.getItem('avarias_token') ? 'painel.html' : 'login.html');
+  </script>
+</head>
+<body></body>
+</html>

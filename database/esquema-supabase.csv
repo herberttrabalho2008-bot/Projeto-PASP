@@ -1,0 +1,46 @@
+table_name,column_name,data_type,is_nullable,column_default,constraint_type,ref_tabela,ref_coluna
+avarias,id,uuid,NO,gen_random_uuid(),PRIMARY KEY,null,null
+avarias,desc_geral,text,NO,null,null,null,null
+avarias,id_utilizador,uuid,YES,null,FOREIGN KEY,utilizadores,id
+avarias,id_equipamento,uuid,YES,null,FOREIGN KEY,equipamentos,id
+avarias,data_avaria,timestamp with time zone,YES,now(),null,null,null
+avarias,foto_avaria,text,YES,null,null,null,null
+avarias,estado_id,uuid,YES,null,FOREIGN KEY,estados_avarias,id
+avarias,data_resolucao,timestamp with time zone,YES,null,null,null,null
+avarias,desc_resolucao,text,YES,null,null,null,null
+avarias,foto_resolucao,text,YES,null,null,null,null
+avarias,created_at,timestamp with time zone,YES,now(),null,null,null
+equipamentos,id,uuid,NO,gen_random_uuid(),PRIMARY KEY,null,null
+equipamentos,nr_serie,text,YES,null,UNIQUE,null,null
+equipamentos,nr_sala,text,YES,null,FOREIGN KEY,salas,nr_sala
+equipamentos,id_tipo,uuid,YES,null,FOREIGN KEY,tipos_equipamento,id
+equipamentos,desc_equipamento,text,NO,null,null,null,null
+equipamentos,created_at,timestamp with time zone,YES,now(),null,null,null
+estados_avarias,id,uuid,NO,gen_random_uuid(),PRIMARY KEY,null,null
+estados_avarias,desc_estado,text,NO,null,UNIQUE,null,null
+historico_avarias,id,uuid,NO,gen_random_uuid(),PRIMARY KEY,null,null
+historico_avarias,avaria_id,uuid,YES,null,FOREIGN KEY,avarias,id
+historico_avarias,desc_geral,text,YES,null,null,null,null
+historico_avarias,desc_detalhes,text,YES,null,null,null,null
+historico_avarias,id_utilizador,uuid,YES,null,FOREIGN KEY,utilizadores,id
+historico_avarias,nr_serie_equipamento,text,YES,null,null,null,null
+historico_avarias,desc_tipo_equipamento,text,YES,null,null,null,null
+historico_avarias,nr_sala,text,YES,null,null,null,null
+historico_avarias,data_avaria,timestamp with time zone,YES,null,null,null,null
+historico_avarias,foto_avaria,text,YES,null,null,null,null
+historico_avarias,data_resolucao,timestamp with time zone,YES,null,null,null,null
+historico_avarias,desc_resolucao,text,YES,null,null,null,null
+historico_avarias,foto_resolucao,text,YES,null,null,null,null
+historico_avarias,desc_estado,text,YES,null,null,null,null
+historico_avarias,data_registo,timestamp with time zone,YES,now(),null,null,null
+salas,nr_sala,text,NO,null,PRIMARY KEY,null,null
+salas,tipo_sala,text,NO,null,null,null,null
+tipos_equipamento,id,uuid,NO,gen_random_uuid(),PRIMARY KEY,null,null
+tipos_equipamento,desc_tipo,text,NO,null,UNIQUE,null,null
+tipos_utilizador,id,uuid,NO,gen_random_uuid(),PRIMARY KEY,null,null
+tipos_utilizador,tipo_utilizador,text,NO,null,UNIQUE,null,null
+utilizadores,id,uuid,NO,null,FOREIGN KEY,null,null
+utilizadores,id,uuid,NO,null,PRIMARY KEY,null,null
+utilizadores,nome_utilizador,text,NO,null,null,null,null
+utilizadores,permissao_id,uuid,YES,null,FOREIGN KEY,tipos_utilizador,id
+utilizadores,created_at,timestamp with time zone,YES,now(),null,null,null

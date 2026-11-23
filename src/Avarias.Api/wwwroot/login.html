@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#efeff1">
+  <title>Iniciar sessão · Gestão de Avarias</title>
+  <link rel="icon" href="img/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600&family=Montserrat:wght@600&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="auth-page">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <img src="img/logo.jpg" alt="Agrupamento de Escolas de Lousada">
+        <div>
+          <h1>Gestão de Avarias</h1>
+          <p>Agrupamento de Escolas de Lousada</p>
+        </div>
+      </div>
+      <h2 class="section-title center">Iniciar sessão</h2>
+      <form id="form" class="auth-form" novalidate>
+        <div id="erro" role="alert"></div>
+        <div class="field">
+          <label class="label" for="email">Email</label>
+          <input id="email" class="input" type="email" autocomplete="username">
+        </div>
+        <div class="field">
+          <label class="label" for="password">Palavra-passe</label>
+          <input id="password" class="input" type="password" autocomplete="current-password">
+        </div>
+        <button id="entrar" class="btn btn-primary btn-block" type="submit">Entrar</button>
+        <p class="auth-links"><a href="recuperar-password.html">Esqueceu-se da palavra-passe?</a></p>
+      </form>
+    </div>
+  </main>
+
+  <script type="module" src="js/pages/login.js"></script>
+</body>
+</html>

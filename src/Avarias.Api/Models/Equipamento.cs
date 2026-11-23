@@ -1,0 +1,9 @@
+namespace Avarias.Api.Models;
+
+public class Equipamento
+{
+    public int Id { get; set; }
+    public string Nome { get; set; } = "";
+    public int LocalId { get; set; }
+    public Local Local { get; set; } = null!;
+}

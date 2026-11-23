@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Reportar avaria · Gestão de Avarias</title>
+  <link rel="icon" href="img/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600&family=Montserrat:wght@600&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="page page-narrow">
+    <a class="back" href="painel.html">← Voltar ao painel</a>
+    <div>
+      <h1 class="page-title">Reportar avaria</h1>
+      <p class="muted">A data e o autor (<span id="quem"></span>) são registados automaticamente.</p>
+    </div>
+
+    <form id="form" class="card stack" novalidate>
+      <div id="erro" role="alert"></div>
+
+      <div class="field">
+        <label class="label" for="titulo">Título *</label>
+        <input id="titulo" class="input" maxlength="120" placeholder="Ex.: Projetor não liga">
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label class="label" for="local">Local / sala *</label>
+          <select id="local" class="input"></select>
+        </div>
+        <div class="field">
+          <label class="label" for="equip">Equipamento</label>
+          <select id="equip" class="input" disabled></select>
+        </div>
+        <div class="field">
+          <label class="label" for="tipo">Tipo de avaria *</label>
+          <select id="tipo" class="input"></select>
+        </div>
+        <div class="field">
+          <label class="label" for="urg">Urgência *</label>
+          <select id="urg" class="input"></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="descricao">Descrição *</label>
+        <textarea id="descricao" class="input" rows="5" maxlength="2000"
+          placeholder="O que aconteceu? Desde quando? O que já tentou?"></textarea>
+      </div>
+
+      <div class="field">
+        <label class="label" for="foto">Fotografia (opcional)</label>
+        <input id="foto" class="file-input" type="file" accept="image/jpeg,image/png,image/webp">
+        <p class="hint">JPG, PNG ou WebP, até 5 MB.</p>
+        <img id="previa" class="preview" alt="Pré-visualização da fotografia" hidden>
+      </div>
+
+      <div class="row-actions">
+        <button id="enviar" class="btn btn-primary" type="submit">Enviar reporte</button>
+        <a class="btn btn-secondary" href="painel.html">Cancelar</a>
+      </div>
+    </form>
+  </main>
+
+  <script type="module" src="js/pages/novo-reporte.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Reporte · Gestão de Avarias</title>
+  <link rel="icon" href="img/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600&family=Montserrat:wght@600&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="page page-narrow">
+    <a class="back" href="painel.html">← Voltar ao painel</a>
+    <div id="erro" role="alert"></div>
+
+    <article id="detalhe" class="card stack">
+      <p class="muted">A carregar…</p>
+    </article>
+
+    <section id="gestao" class="card stack" aria-labelledby="gestao-titulo" hidden>
+      <h2 id="gestao-titulo" class="section-title">Gestão técnica</h2>
+      <form id="gestao-form" class="stack" novalidate>
+        <div id="gestao-erro" role="alert"></div>
+        <div id="gestao-ok" role="status"></div>
+        <div class="form-grid">
+          <div class="field">
+            <label class="label" for="g-estado">Estado</label>
+            <select id="g-estado" class="input"></select>
+          </div>
+          <div class="field">
+            <label class="label" for="g-prio">Prioridade</label>
+            <select id="g-prio" class="input"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label" for="g-res">Resolução</label>
+          <textarea id="g-res" class="input" rows="4" maxlength="2000"
+            placeholder="O que foi feito para resolver a avaria?"></textarea>
+        </div>
+        <div>
+          <button id="gravar" class="btn btn-primary" type="submit">Guardar alterações</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card stack" aria-labelledby="hist-titulo">
+      <h2 id="hist-titulo" class="section-title">Histórico de alterações</h2>
+      <ol id="historico" class="timeline"></ol>
+    </section>
+
+    <section class="card stack" aria-labelledby="coment-titulo">
+      <h2 id="coment-titulo" class="section-title">Comentários</h2>
+      <p id="sem-coment" class="muted" hidden>Ainda não há comentários.</p>
+      <ul id="comentarios" class="comment-list"></ul>
+      <form id="form-coment" class="stack" novalidate>
+        <div id="coment-erro" role="alert"></div>
+        <div class="field">
+          <label class="label" for="novo-coment">Novo comentário</label>
+          <textarea id="novo-coment" class="input" rows="3" maxlength="1000"></textarea>
+        </div>
+        <div>
+          <button id="enviar-coment" class="btn btn-secondary" type="submit">Comentar</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script type="module" src="js/pages/reporte.js"></script>
+</body>
+</html>

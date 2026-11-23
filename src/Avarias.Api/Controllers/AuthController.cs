@@ -1,8 +1,8 @@
-using System.Security.Claims;
 using Avarias.Api.Data;
 using Avarias.Api.Dtos;
 using Avarias.Api.Extensions;
-using Avarias.Api.Services;
+using Avarias.Api.Models;
+using Avarias.Api.Services.Supabase;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -10,78 +10,97 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Avarias.Api.Controllers;
 
+/// <summary>
+/// Sessão com o Supabase Auth. O browser só fala com a API; a API fala com o Supabase.
+/// O perfil (Professor, Biblioteca, Técnico) vem da tabela utilizadores.
+/// </summary>
 [ApiController]
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
-    // Hash falso, usado para que o tempo de resposta seja semelhante quando o email não existe.
-    private static readonly string HashFalso = BCrypt.Net.BCrypt.HashPassword("nao-existe", 11);
-
     private readonly AppDbContext _db;
-    private readonly TokenService _tokens;
-    private readonly IEmailSender _email;
+    private readonly ISupabaseAuth _auth;
     private readonly IConfiguration _cfg;
 
-    public AuthController(AppDbContext db, TokenService tokens, IEmailSender email, IConfiguration cfg)
+    public AuthController(AppDbContext db, ISupabaseAuth auth, IConfiguration cfg)
     {
-        _db = db; _tokens = tokens; _email = email; _cfg = cfg;
+        _db = db; _auth = auth; _cfg = cfg;
     }
 
-    /// <summary>Login com email e password. A mensagem de erro é igual para email inexistente e password errada.</summary>
     [HttpPost("login")]
     [EnableRateLimiting(ServiceCollectionExtensions.PoliticaAuth)]
     public async Task<IActionResult> Login(LoginRequest req)
     {
-        var email = req.Email.Trim().ToLowerInvariant();
-        var u = await _db.Utilizadores.FirstOrDefaultAsync(x => x.Email == email);
+        SessaoSupabase s;
+        try
+        {
+            s = await _auth.EntrarAsync(req.Email.Trim().ToLowerInvariant(), req.Password);
+        }
+        catch (SupabaseAuthException ex)
+        {
+            return Erro(ex);
+        }
 
-        var ok = BCrypt.Net.BCrypt.Verify(req.Password, u?.PasswordHash ?? HashFalso);
-        if (u is null || !ok)
-            return Unauthorized(new { message = "Email ou palavra-passe incorretos." });
+        var u = await _db.Utilizadores.AsNoTracking().Include(x => x.Permissao).FirstOrDefaultAsync(x => x.Id == s.UserId);
+        var perfil = Textos.PerfilDe(u?.Permissao?.Descricao);
+        if (u is null || perfil is null)
+        {
+            await _auth.TerminarSessaoAsync(s.AccessToken);
+            return StatusCode(403, new { message = "Esta conta ainda não tem perfil atribuído. Contacte o técnico da escola." });
+        }
 
-        if (!u.Ativo)
-            return StatusCode(403, new { message = "Esta conta está desativada. Contacte os serviços da escola." });
+        return Ok(new LoginResponse(s.AccessToken, s.RefreshToken, s.ExpiraEm,
+            new UserInfo(u.Id, u.NomeUtilizador, s.Email, perfil.Value)));
+    }
 
-        return Ok(new LoginResponse(_tokens.CriarJwt(u), new UserInfo(u.Id, u.Nome, u.Email, u.Perfil)));
+    /// <summary>Troca o refresh token por uma sessão nova (o access token do Supabase dura ~1 hora).</summary>
+    [HttpPost("refresh")]
+    [EnableRateLimiting(ServiceCollectionExtensions.PoliticaAuth)]
+    public async Task<IActionResult> Renovar(RefreshRequest req)
+    {
+        try
+        {
+            var s = await _auth.RenovarAsync(req.RefreshToken);
+            return Ok(new SessaoResponse(s.AccessToken, s.RefreshToken, s.ExpiraEm));
+        }
+        catch (SupabaseAuthException ex)
+        {
+            return Erro(ex);
+        }
     }
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<IActionResult> Me()
+    public IActionResult Me() =>
+        Ok(new UserInfo(User.UserId(), User.Identity!.Name!, User.Email(), User.PerfilApp()));
+
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout()
     {
-        var id = int.Parse(User.FindFirstValue("sub")!);
-        var u = await _db.Utilizadores.FirstOrDefaultAsync(x => x.Id == id && x.Ativo);
-        if (u is null) return Unauthorized(new { message = "A sessão já não é válida." });
-        return Ok(new UserInfo(u.Id, u.Nome, u.Email, u.Perfil));
+        var token = Request.Headers.Authorization.ToString().Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase);
+        await _auth.TerminarSessaoAsync(token);
+        return NoContent();
     }
 
     /// <summary>
-    /// Pede a recuperação de palavra-passe. A resposta é sempre a mesma,
-    /// para não revelar que emails existem no sistema.
+    /// O Supabase envia o email com o link de recuperação. A resposta é sempre a mesma,
+    /// para não revelar que emails existem.
     /// </summary>
     [HttpPost("forgot-password")]
     [EnableRateLimiting(ServiceCollectionExtensions.PoliticaAuth)]
     public async Task<IActionResult> EsqueciPassword(ForgotPasswordRequest req)
     {
-        var email = req.Email.Trim().ToLowerInvariant();
-        var u = await _db.Utilizadores.FirstOrDefaultAsync(x => x.Email == email && x.Ativo);
-
-        if (u is not null)
+        var baseUrl = (_cfg["Frontend:BaseUrl"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
+        try
         {
-            var (token, hash) = TokenService.NovoTokenRecuperacao();
-            _db.TokensRecuperacao.Add(new Models.TokenRecuperacao
-            {
-                UtilizadorId = u.Id,
-                TokenHash = hash,
-                ExpiraEm = DateTime.UtcNow.AddHours(1),
-            });
-            await _db.SaveChangesAsync();
-
-            var link = $"{_cfg["Frontend:BaseUrl"]}/repor-password.html?token={token}";
-            await _email.EnviarAsync(u.Email, "Recuperação de palavra-passe",
-                $"Olá {u.Nome},\n\nPara definir uma nova palavra-passe abra o link (válido durante 1 hora):\n{link}\n\n" +
-                "Se não fez este pedido, ignore esta mensagem.");
+            await _auth.PedirRecuperacaoAsync(req.Email.Trim().ToLowerInvariant(), $"{baseUrl}/repor-password.html");
         }
+        catch (SupabaseAuthException ex) when (ex.Status == 429)
+        {
+            return Erro(ex);
+        }
+        catch (SupabaseAuthException) { /* não revela nada */ }
 
         return Ok(new { message = "Se o email existir, enviámos um link para repor a palavra-passe." });
     }
@@ -90,18 +109,19 @@ public class AuthController : ControllerBase
     [EnableRateLimiting(ServiceCollectionExtensions.PoliticaAuth)]
     public async Task<IActionResult> ReporPassword(ResetPasswordRequest req)
     {
-        var hash = TokenService.Hash(req.Token);
-        var t = await _db.TokensRecuperacao
-            .FirstOrDefaultAsync(x => x.TokenHash == hash && !x.Usado && x.ExpiraEm > DateTime.UtcNow);
-
-        if (t is null)
-            return BadRequest(new { message = "O link de recuperação é inválido ou já expirou. Peça um novo." });
-
-        var u = await _db.Utilizadores.FirstAsync(x => x.Id == t.UtilizadorId);
-        u.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NovaPassword, 11);
-        t.Usado = true;
-        await _db.SaveChangesAsync();
-
-        return Ok(new { message = "Palavra-passe alterada com sucesso. Já pode iniciar sessão." });
+        try
+        {
+            await _auth.AlterarPasswordAsync(req.AccessToken, req.NovaPassword);
+            await _auth.TerminarSessaoAsync(req.AccessToken);
+            return Ok(new { message = "Palavra-passe alterada com sucesso. Já pode iniciar sessão." });
+        }
+        catch (SupabaseAuthException ex)
+        {
+            return Erro(ex.Status == 401
+                ? new SupabaseAuthException(400, "O link de recuperação é inválido ou já expirou. Peça um novo.")
+                : ex);
+        }
     }
+
+    private ObjectResult Erro(SupabaseAuthException ex) => StatusCode(ex.Status, new { message = ex.Message });
 }

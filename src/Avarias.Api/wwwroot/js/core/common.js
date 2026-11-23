@@ -1,18 +1,15 @@
 // Funções partilhadas: criação de elementos, rótulos, etiquetas, sessão e cabeçalho.
-import { api, getToken, setToken, demoAtivo } from './api.js';
+import { api, getToken, guardarSessao, terminarSessao, demoAtivo } from './api.js';
 
 export const PERFIL_LABEL = { Professor: 'Professor', Biblioteca: 'Biblioteca', Tecnico: 'Técnico' };
-export const ESTADO_LABEL = { Pendente: 'Pendente', EmAnalise: 'Em análise', EmResolucao: 'Em resolução', Resolvido: 'Resolvido' };
-export const ESTADOS = Object.keys(ESTADO_LABEL);
-export const URGENCIA_LABEL = { Baixa: 'Baixa', Media: 'Média', Alta: 'Alta' };
-export const PRIORIDADE_LABEL = { Baixa: 'Baixa', Media: 'Média', Alta: 'Alta', Critica: 'Crítica' };
-export const PRIORIDADES = Object.keys(PRIORIDADE_LABEL);
 
+// Os estados vêm da base de dados (estados_avarias). A "chave" é o nome sem acentos (ex.: "em-analise")
+// e decide a cor; um estado novo sem cor própria aparece em cinzento.
 const ESTADO_CLS = {
-  Pendente: 'estado-pendente',
-  EmAnalise: 'estado-analise',
-  EmResolucao: 'estado-resolucao',
-  Resolvido: 'estado-resolvido',
+  pendente: 'estado-pendente',
+  'em-analise': 'estado-analise',
+  'em-resolucao': 'estado-resolucao',
+  resolvido: 'estado-resolvido',
 };
 
 /**
@@ -33,12 +30,12 @@ export function el(tag, attrs = {}, ...filhos) {
   return n;
 }
 
-export const badgeEstado = (e) => el('span', { class: `pill pill-estado ${ESTADO_CLS[e]}` }, ESTADO_LABEL[e]);
-export const badgeUrgencia = (u) => el('span', { class: `pill u-${u.toLowerCase()}` }, `Urgência: ${URGENCIA_LABEL[u]}`);
-export const badgePrioridade = (p) => el('span', { class: `pill p-${p.toLowerCase()}` }, `Prioridade: ${PRIORIDADE_LABEL[p]}`);
+export const badgeEstado = (e) => (e
+  ? el('span', { class: `pill pill-estado ${ESTADO_CLS[e.chave] ?? 'estado-pendente'}` }, e.descricao)
+  : el('span', { class: 'pill pill-estado estado-pendente' }, 'Sem estado'));
 
-export const formatarData = (iso) =>
-  new Date(iso).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
+export const formatarData = (iso) => (!iso ? '—' :
+  new Date(iso).toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' }));
 
 /** Preenche um <select>. Com placeholder null não há opção vazia. */
 export function preencher(sel, pares, placeholder = 'Todos') {
@@ -82,7 +79,7 @@ export async function autenticar(perfis) {
   try {
     user = await api('/auth/me');
   } catch {
-    setToken(null);
+    guardarSessao(null);
     location.replace('login.html');
     return null;
   }
@@ -97,7 +94,7 @@ export async function autenticar(perfis) {
 export function montarCabecalho(user, ativo) {
   const destinos = [
     ['painel', 'painel.html', 'Painel'],
-    user.perfil === 'Tecnico' ? ['admin', 'admin.html', 'Backoffice'] : ['novo', 'novo-reporte.html', 'Novo reporte'],
+    user.perfil === 'Tecnico' ? ['admin', 'admin.html', 'Backoffice'] : ['novo', 'novo-reporte.html', 'Registar avaria'],
   ];
   const header = el('header', { class: 'app-header on-dark' },
     el('div', { class: 'app-header-inner' },
@@ -111,7 +108,7 @@ export function montarCabecalho(user, ativo) {
       el('button', {
         type: 'button',
         class: 'btn-logout',
-        onclick: () => { setToken(null); location.replace('login.html'); },
+        onclick: async () => { await terminarSessao(); location.replace('login.html'); },
       }, 'Sair')));
   document.body.prepend(header);
   if (demoAtivo) {

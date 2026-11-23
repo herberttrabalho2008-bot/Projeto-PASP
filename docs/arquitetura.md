@@ -6,7 +6,8 @@ Uma só aplicação ASP.NET Core 8 que serve a **API** (`/api/...`) e o **fronte
 Browser ──► ASP.NET Core (Kestrel, porta 5080)
               ├─ /*.html, /css, /js, /img   → wwwroot (estático)
               └─ /api/*                      → Controllers ──► EF Core ──► PostgreSQL (Supabase)
-                                                         └──► pasta uploads/ (fotos)
+                                                         ├──► Supabase Auth (login, contas)
+                                                         └──► pasta uploads/ (fotografias)
 ```
 
 ## Estrutura de pastas
@@ -24,14 +25,15 @@ Projeto PASP/
 │  ├─ Program.cs               arranque (curto; a configuração está em Extensions/)
 │  ├─ Extensions/              ServiceCollectionExtensions (BD, JWT, rate limit, erros)
 │  │                           WebApplicationExtensions (pipeline, criar BD + seed)
-│  ├─ Controllers/             Auth, Catalogos, Reportes, Admin
-│  ├─ Models/                  uma entidade por ficheiro
-│  │  └─ Enums/                Perfil, Estado, Urgencia, Prioridade
-│  ├─ Dtos/                    AuthDtos, CatalogoDtos, ReporteDtos, AdminDtos
-│  ├─ Data/                    AppDbContext (única definição do esquema), DbSeeder
+│  ├─ Controllers/             Auth, Catalogos, Avarias, Admin
+│  ├─ Models/                  uma classe por tabela do Supabase; ContaAuth (auth.users, só leitura);
+│  │                           Textos (compara perfis e estados por texto)
+│  │  └─ Enums/                Perfil
+│  ├─ Dtos/                    AuthDtos, CatalogoDtos, AvariaDtos, AdminDtos
+│  ├─ Data/                    AppDbContext (mapeamento das tabelas), DbSeeder (perfis e estados)
 │  ├─ Services/
-│  │  ├─ Auth/                 TokenService (JWT e tokens de recuperação)
-│  │  └─ Email/                IEmailSender, ConsoleEmailSender, SmtpEmailSender
+│  │  ├─ Supabase/             ISupabaseAuth, SupabaseAuthClient (REST /auth/v1), SupabaseJwks
+│  │  └─ Fotos/                ArmazenamentoFotos (pasta uploads/)
 │  ├─ Properties/              launchSettings.json (dotnet run → Development)
 │  ├─ appsettings*.json        configuração (sem segredos: esses vão em user-secrets)
 │  └─ wwwroot/                 frontend
@@ -56,7 +58,7 @@ Projeto PASP/
 graph LR
     Professor([Professor]) -- Info_avaria --> P1[[Registar Avaria]]
     Biblioteca([Biblioteca]) -- Info_avaria --> P1
-    P1 --> D1[(Reportes por resolver)]
+    P1 --> D1[(Avarias por resolver)]
     P1 -- notifica --> Tecnico(Técnico)
     Tecnico -- Relatório de resolução --> P2[[Registar Resolução]]
     P2 --> D2[(Histórico)]
@@ -65,18 +67,18 @@ graph LR
     P3 --> D2
 ```
 
-Na implementação, "pendentes" e "histórico" são a mesma tabela `reportes` filtrada pelo estado, e cada alteração fica em `historico_reportes`.
+Na implementação, as avarias pendentes são as da tabela `avarias` que não estão no estado "Resolvido", e cada registo e alteração grava uma cópia em `historico_avarias`.
 
 ## Onde pôr código novo
 
 | Quero… | Onde |
 |---|---|
-| Uma entidade / tabela nova | `Models/NovaEntidade.cs` + `DbSet` e regras em `Data/AppDbContext.cs` (ver [base-de-dados.md](base-de-dados.md)) |
+| Uma tabela nova | Criar no Supabase; depois `Models/NovaTabela.cs` + `DbSet` e mapeamento em `Data/AppDbContext.cs` (ver [base-de-dados.md](base-de-dados.md)) |
 | Um endpoint novo | Controller existente ou novo em `Controllers/`; pedidos e respostas em `Dtos/` |
-| Lógica reutilizável (email, ficheiros, relatórios) | `Services/<Área>/` e registar em `Extensions/ServiceCollectionExtensions.cs` |
+| Lógica reutilizável (Supabase, ficheiros, relatórios) | `Services/<Área>/` e registar em `Extensions/ServiceCollectionExtensions.cs` |
 | Uma página nova | `wwwroot/nova.html` + `wwwroot/js/pages/nova.js`; usar `el()` e `autenticar()` de `js/core/common.js` |
 | Um endpoint novo no modo demo | `wwwroot/js/core/demo.js` |
-| Um teste | `tests/Avarias.Api.Tests/` (usa `ApiFactory`, sem base de dados real) |
+| Um teste | `tests/Avarias.Api.Tests/` (usa `ApiFactory`: base de dados em memória e Supabase Auth falso) |
 
 ## Convenções
 

@@ -1,7 +1,9 @@
 namespace Avarias.Api.Dtos;
 
-// Catálogos
-public record EquipamentoDto(int Id, string Nome);
-public record LocalDto(int Id, string Nome, bool EBiblioteca, List<EquipamentoDto> Equipamentos);
-public record TipoDto(int Id, string Nome);
-public record CatalogosDto(List<LocalDto> Locais, List<TipoDto> Tipos);
+// Catálogos: salas com equipamentos, tipos de equipamento e estados
+/// <summary>Chave = descrição sem acentos ("em-analise"), usada no frontend para as cores.</summary>
+public record EstadoDto(Guid Id, string Descricao, string Chave);
+public record TipoEquipamentoDto(Guid Id, string Descricao);
+public record EquipamentoDto(Guid Id, string Descricao, string? NrSerie, Guid? IdTipo, string? Tipo);
+public record SalaDto(string NrSala, string TipoSala, bool EBiblioteca, List<EquipamentoDto> Equipamentos);
+public record CatalogosDto(List<SalaDto> Salas, List<TipoEquipamentoDto> TiposEquipamento, List<EstadoDto> Estados);

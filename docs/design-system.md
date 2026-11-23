@@ -17,7 +17,7 @@ Os tokens estão copiados no topo de `src/Avarias.Api/wwwroot/css/styles.css`: *
 ## Regras
 
 - Letra Fira Sans na interface e Montserrat no nome da aplicação.
-- Urgência com ponto colorido; prioridade em pílula roxa.
+- Os estados vêm da base de dados; os quatro base têm cor própria e outros aparecem em cinzento.
 - Painel em tabela; em telemóvel cada linha empilha.
 - Ações irreversíveis abrem um modal de confirmação.
 - Sem o logótipo da referência (é de outra empresa); o logótipo da escola aparece só no login.

@@ -4,71 +4,76 @@ using Microsoft.EntityFrameworkCore;
 namespace Avarias.Api.Data;
 
 /// <summary>
-/// Contexto EF Core. Os nomes das tabelas vêm dos nomes das propriedades DbSet
-/// convertidos para snake_case (ver UseSnakeCaseNamingConvention em Program.cs).
-/// Este modelo é a única definição do esquema: a API cria as tabelas no arranque.
+/// Contexto EF Core mapeado para as tabelas que já existem no Supabase.
+/// A API NÃO cria nem altera o esquema: as mudanças fazem-se no Supabase
+/// e depois atualiza-se este mapeamento (ver docs/base-de-dados.md).
+/// Os nomes das colunas em snake_case vêm de UseSnakeCaseNamingConvention;
+/// os que não coincidem com o nome da propriedade estão indicados abaixo.
 /// </summary>
 public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     public DbSet<Utilizador> Utilizadores => Set<Utilizador>();
-    public DbSet<Local> Locais => Set<Local>();
+    public DbSet<TipoUtilizador> TiposUtilizador => Set<TipoUtilizador>();
+    public DbSet<Sala> Salas => Set<Sala>();
+    public DbSet<TipoEquipamento> TiposEquipamento => Set<TipoEquipamento>();
     public DbSet<Equipamento> Equipamentos => Set<Equipamento>();
-    public DbSet<TipoAvaria> TiposAvaria => Set<TipoAvaria>();
-    public DbSet<Reporte> Reportes => Set<Reporte>();
-    public DbSet<HistoricoReporte> HistoricoReportes => Set<HistoricoReporte>();
-    public DbSet<Comentario> Comentarios => Set<Comentario>();
-    public DbSet<TokenRecuperacao> TokensRecuperacao => Set<TokenRecuperacao>();
+    public DbSet<EstadoAvaria> EstadosAvarias => Set<EstadoAvaria>();
+    public DbSet<Avaria> Avarias => Set<Avaria>();
+    public DbSet<HistoricoAvaria> HistoricoAvarias => Set<HistoricoAvaria>();
+    /// <summary>Só leitura (auth.users).</summary>
+    public DbSet<ContaAuth> ContasAuth => Set<ContaAuth>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<Utilizador>(e =>
         {
-            e.HasIndex(x => x.Email).IsUnique();
-            e.Property(x => x.Perfil).HasConversion<string>();
-            e.ToTable(t =>
-            {
-                // O login procura o email em minúsculas: uma conta com maiúsculas nunca conseguiria entrar.
-                t.HasCheckConstraint("ck_utilizadores_email_minusculas", "email = lower(email)");
-                t.HasCheckConstraint("ck_utilizadores_perfil", "perfil in ('Professor', 'Biblioteca', 'Tecnico')");
-            });
+            e.ToTable("utilizadores");
+            e.HasOne(x => x.Permissao).WithMany().HasForeignKey(x => x.PermissaoId);
         });
 
-        b.Entity<Local>().HasIndex(x => x.Nome).IsUnique();
-        b.Entity<TipoAvaria>().HasIndex(x => x.Nome).IsUnique();
-
-        b.Entity<Reporte>(e =>
+        b.Entity<TipoUtilizador>(e =>
         {
-            e.Property(x => x.Urgencia).HasConversion<string>();
-            e.Property(x => x.Prioridade).HasConversion<string>();
-            e.Property(x => x.Estado).HasConversion<string>();
-            e.HasOne(x => x.Autor).WithMany().HasForeignKey(x => x.AutorId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.Local).WithMany().HasForeignKey(x => x.LocalId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.Tipo).WithMany().HasForeignKey(x => x.TipoId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.Equipamento).WithMany().HasForeignKey(x => x.EquipamentoId).OnDelete(DeleteBehavior.Restrict);
-            e.HasIndex(x => x.AutorId);
-            e.HasIndex(x => x.Estado);
-            e.HasIndex(x => x.LocalId);
-            e.HasIndex(x => x.TipoId);
+            e.ToTable("tipos_utilizador");
+            e.Property(x => x.Descricao).HasColumnName("tipo_utilizador");
         });
 
-        b.Entity<HistoricoReporte>(e =>
+        b.Entity<Sala>(e =>
         {
-            e.HasOne<Reporte>().WithMany(r => r.Historico).HasForeignKey(x => x.ReporteId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Utilizador).WithMany().HasForeignKey(x => x.UtilizadorId).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("salas");
+            e.HasKey(x => x.NrSala);
         });
 
-        b.Entity<Comentario>(e =>
+        b.Entity<TipoEquipamento>().ToTable("tipos_equipamento");
+
+        b.Entity<Equipamento>(e =>
         {
-            e.HasOne<Reporte>().WithMany(r => r.Comentarios).HasForeignKey(x => x.ReporteId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Autor).WithMany().HasForeignKey(x => x.AutorId).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("equipamentos");
+            e.HasOne(x => x.Sala).WithMany(s => s.Equipamentos).HasForeignKey(x => x.NrSala);
+            e.HasOne(x => x.Tipo).WithMany().HasForeignKey(x => x.IdTipo);
         });
 
-        b.Entity<TokenRecuperacao>(e =>
+        b.Entity<EstadoAvaria>().ToTable("estados_avarias");
+
+        b.Entity<Avaria>(e =>
         {
-            e.HasIndex(x => x.TokenHash).IsUnique();
-            e.HasOne<Utilizador>().WithMany().HasForeignKey(x => x.UtilizadorId).OnDelete(DeleteBehavior.Cascade);
+            e.ToTable("avarias");
+            e.HasOne(x => x.Utilizador).WithMany().HasForeignKey(x => x.IdUtilizador);
+            e.HasOne(x => x.Equipamento).WithMany().HasForeignKey(x => x.IdEquipamento);
+            e.HasOne(x => x.Estado).WithMany().HasForeignKey(x => x.EstadoId);
+        });
+
+        b.Entity<HistoricoAvaria>(e =>
+        {
+            e.ToTable("historico_avarias");
+            e.HasOne<Avaria>().WithMany(a => a.Historico).HasForeignKey(x => x.AvariaId);
+            e.HasOne(x => x.Utilizador).WithMany().HasForeignKey(x => x.IdUtilizador);
+        });
+
+        b.Entity<ContaAuth>(e =>
+        {
+            e.ToTable("users", "auth", t => t.ExcludeFromMigrations());
         });
     }
 }

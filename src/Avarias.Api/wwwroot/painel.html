@@ -14,8 +14,8 @@
 <body>
   <main class="page">
     <div class="page-head">
-      <h1 class="page-title">Painel de reportes</h1>
-      <a id="novo-link" class="btn btn-primary" href="novo-reporte.html" hidden>Reportar avaria</a>
+      <h1 class="page-title">Painel de avarias</h1>
+      <a id="novo-link" class="btn btn-primary" href="novo-reporte.html" hidden>Registar avaria</a>
     </div>
 
     <section aria-label="Resumo por estado">
@@ -26,23 +26,19 @@
       <div class="filters">
         <div class="field wide">
           <label class="label" for="q">Pesquisar</label>
-          <input id="q" class="input" type="search" enterkeyhint="search" placeholder="Título ou descrição">
+          <input id="q" class="input" type="search" enterkeyhint="search" placeholder="Descrição, equipamento ou nº de série">
         </div>
         <div class="field">
           <label class="label" for="f-estado">Estado</label>
           <select id="f-estado" class="input"></select>
         </div>
         <div class="field">
-          <label class="label" for="f-local">Local</label>
-          <select id="f-local" class="input"></select>
+          <label class="label" for="f-sala">Sala</label>
+          <select id="f-sala" class="input"></select>
         </div>
         <div class="field">
-          <label class="label" for="f-tipo">Tipo de avaria</label>
+          <label class="label" for="f-tipo">Tipo de equipamento</label>
           <select id="f-tipo" class="input"></select>
-        </div>
-        <div class="field">
-          <label class="label" for="f-urg">Urgência</label>
-          <select id="f-urg" class="input"></select>
         </div>
         <div class="field">
           <button id="limpar" class="btn btn-secondary btn-block" type="button" disabled>Limpar filtros</button>

@@ -1,8 +1,9 @@
-using System.Text;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Avarias.Api.Data;
-using Avarias.Api.Services;
+using Avarias.Api.Models;
+using Avarias.Api.Services.Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,14 +26,19 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>Tokens e envio de email. Sem "Smtp:Host" os emails só aparecem no log (desenvolvimento).</summary>
-    public static IServiceCollection AddServicosAplicacao(this IServiceCollection services, IConfiguration cfg)
+    /// <summary>Cliente do Supabase Auth (login, sessões, recuperação e gestão de contas).</summary>
+    public static IServiceCollection AddSupabase(this IServiceCollection services, IConfiguration cfg)
     {
-        services.AddSingleton<TokenService>();
-        if (string.IsNullOrWhiteSpace(cfg["Smtp:Host"]))
-            services.AddSingleton<IEmailSender, ConsoleEmailSender>();
-        else
-            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        SupabaseConfig.Url(cfg); // falha logo no arranque se faltar a configuração
+        if (string.IsNullOrWhiteSpace(cfg["Supabase:AnonKey"]))
+            throw new InvalidOperationException("Configure Supabase:AnonKey (chave pública do projeto). Ver README.");
+
+        services.AddSingleton<Services.Fotos.ArmazenamentoFotos>();
+        services.AddHttpClient<ISupabaseAuth, SupabaseAuthClient>(h => h.Timeout = TimeSpan.FromSeconds(15));
+        // As chaves de validação ficam em cache: um único SupabaseJwks para toda a aplicação.
+        services.AddHttpClient(nameof(SupabaseJwks), h => h.Timeout = TimeSpan.FromSeconds(10));
+        services.AddSingleton(sp => ActivatorUtilities.CreateInstance<SupabaseJwks>(sp,
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(SupabaseJwks))));
         return services;
     }
 
@@ -55,39 +61,64 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>Autenticação JWT. A API recusa arrancar sem "Jwt:Key" com 32+ caracteres.</summary>
-    public static IServiceCollection AddAutenticacaoJwt(this IServiceCollection services, IConfiguration cfg)
+    /// <summary>
+    /// Valida os tokens do Supabase Auth e acrescenta o perfil da aplicação (tabela utilizadores → tipos_utilizador).
+    /// Em cada pedido confirma que a conta existe em utilizadores e não está bloqueada em auth.users.
+    /// </summary>
+    public static IServiceCollection AddAutenticacaoSupabase(this IServiceCollection services, IConfiguration cfg)
     {
-        var jwtKey = cfg["Jwt:Key"];
-        if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
-            throw new InvalidOperationException("Configure Jwt:Key com pelo menos 32 caracteres (ver README).");
+        var issuer = SupabaseConfig.Issuer(cfg);
 
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(o =>
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<SupabaseJwks>((o, jwks) =>
             {
-                o.MapInboundClaims = false; // mantém os nomes curtos: sub, name, role
+                o.MapInboundClaims = false; // mantém os nomes curtos: sub, email…
                 o.TokenValidationParameters = new TokenValidationParameters
                 {
-                    NameClaimType = "name",
-                    RoleClaimType = "role",
+                    NameClaimType = Claims.Nome,
+                    RoleClaimType = Claims.Perfil, // o "role" do Supabase é sempre "authenticated"; o perfil vem da BD
                     ValidateIssuer = true,
-                    ValidIssuer = cfg["Jwt:Issuer"],
+                    ValidIssuer = issuer,
                     ValidateAudience = true,
-                    ValidAudience = cfg["Jwt:Audience"],
+                    ValidAudience = SupabaseConfig.Audience,
                     ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                    IssuerSigningKeyResolver = (_, _, kid, _) => jwks.Chaves(kid),
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromMinutes(1),
                 };
                 o.Events = new JwtBearerEvents
                 {
-                    // Uma conta desativada perde o acesso logo, sem esperar que o token expire.
                     OnTokenValidated = async ctx =>
                     {
+                        if (!Guid.TryParse(ctx.Principal?.FindFirst("sub")?.Value, out var id))
+                        {
+                            ctx.Fail("Token sem utilizador.");
+                            return;
+                        }
                         var db = ctx.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-                        var ativo = int.TryParse(ctx.Principal?.FindFirst("sub")?.Value, out var id)
-                                    && await db.Utilizadores.AnyAsync(u => u.Id == id && u.Ativo);
-                        if (!ativo) ctx.Fail("Conta desativada ou inexistente.");
+                        var agora = DateTime.UtcNow;
+                        var u = await db.Utilizadores.AsNoTracking()
+                            .Where(x => x.Id == id)
+                            .Select(x => new
+                            {
+                                x.NomeUtilizador,
+                                Perfil = x.Permissao != null ? x.Permissao.Descricao : null,
+                                Bloqueada = db.ContasAuth.Any(c => c.Id == id && (c.BannedUntil > agora || c.DeletedAt != null)),
+                            })
+                            .FirstOrDefaultAsync();
+
+                        var perfil = Textos.PerfilDe(u?.Perfil);
+                        if (u is null || perfil is null || u.Bloqueada)
+                        {
+                            ctx.Fail("Conta desativada, sem perfil ou inexistente.");
+                            return;
+                        }
+                        ((ClaimsIdentity)ctx.Principal!.Identity!).AddClaims(new[]
+                        {
+                            new Claim(Claims.Nome, u.NomeUtilizador),
+                            new Claim(Claims.Perfil, perfil.Value.ToString()),
+                        });
                     },
                 };
             });
@@ -97,7 +128,7 @@ public static class ServiceCollectionExtensions
 
     /// <summary>
     /// Limite de tentativas no login e na recuperação, por IP. Numa escola todos saem pelo mesmo IP,
-    /// por isso o limite é largo; o BCrypt já torna cada tentativa lenta.
+    /// por isso o limite é largo; o Supabase tem também os seus próprios limites.
     /// </summary>
     public static IServiceCollection AddLimiteDeTentativas(this IServiceCollection services)
     {

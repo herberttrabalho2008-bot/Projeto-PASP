@@ -1,4 +1,4 @@
-// Backoffice (só técnico): contas, locais com equipamentos e tipos de avaria.
+// Backoffice (só técnico): contas, salas com equipamentos e tipos de equipamento.
 // As permissões reais são verificadas pela API (/api/admin exige o perfil Técnico).
 // Visual: design system "Backoffice Avarias" (css/backoffice.css).
 import { api } from '../core/api.js';
@@ -8,7 +8,7 @@ const $ = (id) => document.getElementById(id);
 let USER = null;
 
 // ------------------------------------------------------------------ separadores
-const SECOES = ['contas', 'locais', 'tipos'];
+const SECOES = ['contas', 'salas', 'tipos'];
 function mostrarSecao(nome) {
   for (const s of SECOES) {
     $(`tab-${s}`).setAttribute('aria-selected', String(s === nome));
@@ -71,7 +71,7 @@ function confirmar(titulo, textoMsg, acao) {
   });
 }
 
-/** Confirma, apaga e recarrega. Erros (ex.: 409 com reportes associados) vão para a caixa de erro. */
+/** Confirma, apaga e recarrega. Erros (ex.: 409 com avarias associadas) vão para a caixa de erro. */
 async function apagar(oque, nome, path, recarregar, msgOk) {
   const sim = await confirmar(`Apagar ${oque}`, `Vai apagar "${nome}". Esta ação não se pode desfazer.`, `Apagar ${oque}`);
   if (!sim) return;
@@ -156,8 +156,8 @@ async function carregarContas() {
   $('n-contas').textContent = String(contas.length);
   $('lista-contas').replaceChildren(...contas.map((u) => el('tr', { class: u.ativo ? null : 'is-off' },
     el('td', {}, el('strong', {}, u.nome), u.id === USER.id ? el('span', { class: 'muted-cell' }, ' (você)') : null),
-    el('td', {}, u.email),
-    el('td', {}, el('span', { class: 'bo-tag' }, PERFIL_LABEL[u.perfil])),
+    el('td', {}, u.email ?? '—'),
+    el('td', {}, u.perfil ? el('span', { class: 'bo-tag' }, PERFIL_LABEL[u.perfil]) : el('span', { class: 'muted-cell' }, 'Sem perfil')),
     el('td', {}, u.ativo
       ? el('span', { class: 'bo-status bo-status--success' }, 'Ativa')
       : el('span', { class: 'bo-status bo-status--neutral' }, 'Desativada')),
@@ -166,72 +166,100 @@ async function carregarContas() {
       botao('Palavra-passe', 'bo-btn--secondary', () => definirPassword(u), `Definir palavra-passe de ${u.nome}`))))));
 }
 
-// ------------------------------------------------------------------ locais e equipamentos
-const formLocal = (l) => [
-  campo('f-nome', 'Nome do local', texto('f-nome', l?.nome, { autocomplete: 'off', placeholder: 'Ex.: Sala 101' })),
-  caixa('f-bib', 'É um espaço da biblioteca', l?.eBiblioteca ?? false),
-];
+// ------------------------------------------------------------------ salas e equipamentos
+let CAT = { salas: [], tiposEquipamento: [] };
 
-const nomeValido = () => {
-  const nome = $('f-nome').value.trim();
-  if (nome.length < 2) throw new Error('Indique o nome (mínimo 2 caracteres).');
-  return nome;
+const exigir = (id, rotulo, min = 2) => {
+  const v = $(id).value.trim();
+  if (v.length < min) throw new Error(`Indique ${rotulo}.`);
+  return v;
 };
 
-const novoLocal = () => abrirDialogo('Novo local', formLocal(null), async () => {
-  await api('/admin/locais', { method: 'POST', json: { nome: nomeValido(), eBiblioteca: $('f-bib').checked } });
-  await carregarCatalogos();
-  return 'Local criado.';
-}, 'Criar local');
+const formSala = (s) => [
+  s ? null : campo('f-nr', 'Número ou nome da sala', texto('f-nr', '', { autocomplete: 'off', placeholder: 'Ex.: 101 ou B2.04' }),
+    'Não se pode mudar depois de criada.'),
+  campo('f-tipo', 'Tipo de sala', texto('f-tipo', s?.tipoSala, { autocomplete: 'off', placeholder: 'Ex.: Sala de aula, Laboratório, Biblioteca' }),
+    'Use "Biblioteca" para os espaços da biblioteca.'),
+].filter(Boolean);
 
-const editarLocal = (l) => abrirDialogo(`Editar local: ${l.nome}`, formLocal(l), async () => {
-  await api(`/admin/locais/${l.id}`, { method: 'PUT', json: { nome: nomeValido(), eBiblioteca: $('f-bib').checked } });
+const novaSala = () => abrirDialogo('Nova sala', formSala(null), async () => {
+  await api('/admin/salas', { method: 'POST', json: { nrSala: exigir('f-nr', 'o número da sala', 1), tipoSala: exigir('f-tipo', 'o tipo de sala') } });
   await carregarCatalogos();
-  return 'Local atualizado.';
+  return 'Sala criada.';
+}, 'Criar sala');
+
+const editarSala = (s) => abrirDialogo(`Editar sala ${s.nrSala}`, formSala(s), async () => {
+  await api(`/admin/salas/${encodeURIComponent(s.nrSala)}`, { method: 'PUT', json: { tipoSala: exigir('f-tipo', 'o tipo de sala') } });
+  await carregarCatalogos();
+  return 'Sala atualizada.';
 });
 
-const formNome = (rotulo, valor) => [campo('f-nome', rotulo, texto('f-nome', valor, { autocomplete: 'off' }))];
+function formEquipamento(q, nrSala) {
+  const sala = el('select', { id: 'f-sala', class: 'input' });
+  preencher(sala, CAT.salas.map((s) => [s.nrSala, `${s.nrSala} (${s.tipoSala})`]), null);
+  sala.value = nrSala;
+  const tipo = el('select', { id: 'f-tipoeq', class: 'input' });
+  preencher(tipo, CAT.tiposEquipamento.map((t) => [t.id, t.descricao]), 'Sem tipo');
+  tipo.value = q?.idTipo ?? '';
+  return [
+    campo('f-desc', 'Descrição', texto('f-desc', q?.descricao, { autocomplete: 'off', placeholder: 'Ex.: Projetor Epson do quadro' })),
+    campo('f-tipoeq', 'Tipo de equipamento', tipo),
+    campo('f-serie', 'Número de série (opcional)', texto('f-serie', q?.nrSerie, { autocomplete: 'off' })),
+    campo('f-sala', 'Sala', sala),
+  ];
+}
 
-const novoEquipamento = (l) => abrirDialogo(`Novo equipamento em ${l.nome}`, formNome('Nome do equipamento'), async () => {
-  await api(`/admin/locais/${l.id}/equipamentos`, { method: 'POST', json: { nome: nomeValido() } });
+const dadosEquipamento = () => ({
+  descricao: exigir('f-desc', 'a descrição do equipamento'),
+  idTipo: $('f-tipoeq').value || null,
+  nrSerie: $('f-serie').value.trim() || null,
+  nrSala: $('f-sala').value,
+});
+
+const novoEquipamento = (s) => abrirDialogo(`Novo equipamento na sala ${s.nrSala}`, formEquipamento(null, s.nrSala), async () => {
+  await api('/admin/equipamentos', { method: 'POST', json: dadosEquipamento() });
   await carregarCatalogos();
   return 'Equipamento adicionado.';
 }, 'Adicionar');
 
-const editarEquipamento = (q) => abrirDialogo('Editar equipamento', formNome('Nome do equipamento', q.nome), async () => {
-  await api(`/admin/equipamentos/${q.id}`, { method: 'PUT', json: { nome: nomeValido() } });
+const editarEquipamento = (q, s) => abrirDialogo('Editar equipamento', formEquipamento(q, s.nrSala), async () => {
+  await api(`/admin/equipamentos/${q.id}`, { method: 'PUT', json: dadosEquipamento() });
   await carregarCatalogos();
   return 'Equipamento atualizado.';
 });
 
-function renderLocais(locais) {
-  $('n-locais').textContent = String(locais.length);
-  $('lista-locais').replaceChildren(...locais.map((l) => el('li', { class: 'bo-local' },
+const rotuloEquip = (q) => [q.descricao, q.tipo, q.nrSerie ? `nº ${q.nrSerie}` : null].filter(Boolean).join(' · ');
+
+function renderSalas(salas) {
+  $('n-salas').textContent = String(salas.length);
+  $('lista-salas').replaceChildren(...salas.map((s) => el('li', { class: 'bo-local' },
     el('div', { class: 'bo-local-head' },
       el('div', {},
-        el('strong', {}, l.nome),
-        el('small', {}, `${l.equipamentos.length} equipamento${l.equipamentos.length === 1 ? '' : 's'}`)),
-      l.eBiblioteca ? el('span', { class: 'bo-tag' }, 'Biblioteca') : null,
-      acoesEditarApagar(() => editarLocal(l),
-        () => apagar('local', l.nome, `/admin/locais/${l.id}`, carregarCatalogos, 'Local apagado.'), l.nome)),
-    el('ul', { class: 'bo-equip', 'aria-label': `Equipamentos de ${l.nome}` },
-      ...l.equipamentos.map((q) => el('li', {},
-        el('span', {}, q.nome),
-        acoesEditarApagar(() => editarEquipamento(q),
-          () => apagar('equipamento', q.nome, `/admin/equipamentos/${q.id}`, carregarCatalogos, 'Equipamento apagado.'), q.nome))),
+        el('strong', {}, `Sala ${s.nrSala}`),
+        el('small', {}, `${s.tipoSala} · ${s.equipamentos.length} equipamento${s.equipamentos.length === 1 ? '' : 's'}`)),
+      s.eBiblioteca ? el('span', { class: 'bo-tag' }, 'Biblioteca') : null,
+      acoesEditarApagar(() => editarSala(s),
+        () => apagar('sala', s.nrSala, `/admin/salas/${encodeURIComponent(s.nrSala)}`, carregarCatalogos, 'Sala apagada.'), `sala ${s.nrSala}`)),
+    el('ul', { class: 'bo-equip', 'aria-label': `Equipamentos da sala ${s.nrSala}` },
+      ...s.equipamentos.map((q) => el('li', {},
+        el('span', {}, rotuloEquip(q)),
+        acoesEditarApagar(() => editarEquipamento(q, s),
+          () => apagar('equipamento', q.descricao, `/admin/equipamentos/${q.id}`, carregarCatalogos, 'Equipamento apagado.'), q.descricao))),
       el('li', { class: 'bo-equip-add' },
-        botao('+ Adicionar equipamento', 'bo-btn--secondary', () => novoEquipamento(l), `Adicionar equipamento em ${l.nome}`))))));
+        botao('+ Adicionar equipamento', 'bo-btn--secondary', () => novoEquipamento(s), `Adicionar equipamento na sala ${s.nrSala}`))))));
 }
 
-// ------------------------------------------------------------------ tipos de avaria
-const novoTipo = () => abrirDialogo('Novo tipo de avaria', formNome('Nome do tipo'), async () => {
-  await api('/admin/tipos', { method: 'POST', json: { nome: nomeValido() } });
+// ------------------------------------------------------------------ tipos de equipamento
+const formTipo = (valor) => [campo('f-desc', 'Descrição', texto('f-desc', valor, { autocomplete: 'off', placeholder: 'Ex.: Projetor' }))];
+
+const novoTipo = () => abrirDialogo('Novo tipo de equipamento', formTipo(), async () => {
+  await api('/admin/tipos-equipamento', { method: 'POST', json: { descricao: exigir('f-desc', 'a descrição') } });
   await carregarCatalogos();
   return 'Tipo criado.';
 }, 'Criar tipo');
 
-const editarTipo = (t) => abrirDialogo('Editar tipo de avaria', formNome('Nome do tipo', t.nome), async () => {
-  await api(`/admin/tipos/${t.id}`, { method: 'PUT', json: { nome: nomeValido() } });
+const editarTipo = (t) => abrirDialogo('Editar tipo de equipamento', formTipo(t.descricao), async () => {
+  await api(`/admin/tipos-equipamento/${t.id}`, { method: 'PUT', json: { descricao: exigir('f-desc', 'a descrição') } });
   await carregarCatalogos();
   return 'Tipo atualizado.';
 });
@@ -239,15 +267,15 @@ const editarTipo = (t) => abrirDialogo('Editar tipo de avaria', formNome('Nome d
 function renderTipos(tipos) {
   $('n-tipos').textContent = String(tipos.length);
   $('lista-tipos').replaceChildren(...tipos.map((t) => el('tr', {},
-    el('td', {}, el('strong', {}, t.nome)),
+    el('td', {}, el('strong', {}, t.descricao)),
     el('td', {}, acoesEditarApagar(() => editarTipo(t),
-      () => apagar('tipo', t.nome, `/admin/tipos/${t.id}`, carregarCatalogos, 'Tipo apagado.'), t.nome)))));
+      () => apagar('tipo', t.descricao, `/admin/tipos-equipamento/${t.id}`, carregarCatalogos, 'Tipo apagado.'), t.descricao)))));
 }
 
 async function carregarCatalogos() {
-  const cat = await api('/catalogos');
-  renderLocais(cat.locais);
-  renderTipos(cat.tipos);
+  CAT = await api('/catalogos');
+  renderSalas(CAT.salas);
+  renderTipos(CAT.tiposEquipamento);
 }
 
 // ------------------------------------------------------------------ arranque
@@ -271,7 +299,7 @@ async function main() {
   mostrarSecao('contas');
 
   $('nova-conta').addEventListener('click', novaConta);
-  $('novo-local').addEventListener('click', novoLocal);
+  $('nova-sala').addEventListener('click', novaSala);
   $('novo-tipo').addEventListener('click', novoTipo);
   $('dlg-form').addEventListener('submit', submeterDialogo);
   $('dlg-cancelar').addEventListener('click', () => $('dlg').close());

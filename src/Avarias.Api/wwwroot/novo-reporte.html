@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <title>Reportar avaria · Gestão de Avarias</title>
+  <title>Registar avaria · Gestão de Avarias</title>
   <link rel="icon" href="img/logo.jpg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,39 +15,27 @@
   <main class="page page-narrow">
     <a class="back" href="painel.html">← Voltar ao painel</a>
     <div>
-      <h1 class="page-title">Reportar avaria</h1>
-      <p class="muted">A data e o autor (<span id="quem"></span>) são registados automaticamente.</p>
+      <h1 class="page-title">Registar avaria</h1>
+      <p class="muted">A data e quem regista (<span id="quem"></span>) ficam guardados automaticamente.</p>
     </div>
 
     <form id="form" class="card stack" novalidate>
       <div id="erro" role="alert"></div>
 
-      <div class="field">
-        <label class="label" for="titulo">Título *</label>
-        <input id="titulo" class="input" maxlength="120" placeholder="Ex.: Projetor não liga">
-      </div>
-
       <div class="form-grid">
         <div class="field">
-          <label class="label" for="local">Local / sala *</label>
-          <select id="local" class="input"></select>
+          <label class="label" for="sala">Sala *</label>
+          <select id="sala" class="input"></select>
         </div>
         <div class="field">
-          <label class="label" for="equip">Equipamento</label>
+          <label class="label" for="equip">Equipamento *</label>
           <select id="equip" class="input" disabled></select>
-        </div>
-        <div class="field">
-          <label class="label" for="tipo">Tipo de avaria *</label>
-          <select id="tipo" class="input"></select>
-        </div>
-        <div class="field">
-          <label class="label" for="urg">Urgência *</label>
-          <select id="urg" class="input"></select>
+          <p id="equip-info" class="hint" hidden></p>
         </div>
       </div>
 
       <div class="field">
-        <label class="label" for="descricao">Descrição *</label>
+        <label class="label" for="descricao">Descrição da avaria *</label>
         <textarea id="descricao" class="input" rows="5" maxlength="2000"
           placeholder="O que aconteceu? Desde quando? O que já tentou?"></textarea>
       </div>
@@ -60,7 +48,7 @@
       </div>
 
       <div class="row-actions">
-        <button id="enviar" class="btn btn-primary" type="submit">Enviar reporte</button>
+        <button id="enviar" class="btn btn-primary" type="submit">Registar avaria</button>
         <a class="btn btn-secondary" href="painel.html">Cancelar</a>
       </div>
     </form>

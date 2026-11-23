@@ -25,12 +25,25 @@ public static class WebApplicationExtensions
         return app;
     }
 
-    /// <summary>Cria as tabelas (se não existirem) e os dados iniciais.</summary>
+    /// <summary>
+    /// Confirma a ligação à base de dados e garante os perfis e estados de que a aplicação depende.
+    /// As tabelas são do Supabase: aqui nada é criado nem alterado além desses valores.
+    /// </summary>
     public static async Task InicializarBaseDeDadosAsync(this WebApplication app)
     {
+        if (!app.Configuration.GetValue("BaseDeDados:GarantirDadosBase", true)) return;
+
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await db.Database.EnsureCreatedAsync();
-        await DbSeeder.SeedAsync(db, app.Configuration.GetValue("SeedUtilizadoresTeste", false));
+        var log = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Arranque");
+        try
+        {
+            await DbSeeder.SeedAsync(db, log);
+        }
+        catch (Exception ex)
+        {
+            log.LogCritical(ex, "Não foi possível usar a base de dados. Confirme ConnectionStrings:Default e se as tabelas existem no Supabase.");
+            throw;
+        }
     }
 }

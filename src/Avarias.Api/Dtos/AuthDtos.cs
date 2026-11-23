@@ -3,7 +3,7 @@ using Avarias.Api.Models;
 
 namespace Avarias.Api.Dtos;
 
-// Autenticação
+// Autenticação (Supabase Auth através da API)
 public class LoginRequest
 {
     [Required(ErrorMessage = "Indique o email."), EmailAddress(ErrorMessage = "O email não é válido.")]
@@ -13,8 +13,17 @@ public class LoginRequest
     public string Password { get; set; } = "";
 }
 
-public record UserInfo(int Id, string Nome, string Email, Perfil Perfil);
-public record LoginResponse(string Token, UserInfo User);
+public class RefreshRequest
+{
+    [Required(ErrorMessage = "A sessão terminou. Inicie sessão novamente.")]
+    public string RefreshToken { get; set; } = "";
+}
+
+public record UserInfo(Guid Id, string Nome, string Email, Perfil Perfil);
+
+/// <summary>Token = access token do Supabase (expira em ~1 h); RefreshToken renova-o sem pedir a palavra-passe.</summary>
+public record LoginResponse(string Token, string RefreshToken, DateTime ExpiraEm, UserInfo User);
+public record SessaoResponse(string Token, string RefreshToken, DateTime ExpiraEm);
 
 public class ForgotPasswordRequest
 {
@@ -24,8 +33,9 @@ public class ForgotPasswordRequest
 
 public class ResetPasswordRequest
 {
+    /// <summary>Access token que o Supabase põe no link de recuperação (#access_token=...).</summary>
     [Required(ErrorMessage = "O link de recuperação é inválido.")]
-    public string Token { get; set; } = "";
+    public string AccessToken { get; set; } = "";
 
     [Required(ErrorMessage = "Indique a nova palavra-passe."),
      MinLength(8, ErrorMessage = "A palavra-passe deve ter pelo menos 8 caracteres.")]

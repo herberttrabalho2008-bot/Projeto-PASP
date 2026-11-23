@@ -73,6 +73,7 @@ P3 -- "Historico_avarias" --> Biblioteca
 |---|---|
 | Frontend | HTML, CSS e JavaScript (módulos ES, sem frameworks nem passo de build) |
 | Backend | Web API em C# com ASP.NET Core 8 e Entity Framework Core |
+| Autenticação | Supabase Auth (a API faz de intermediária: o browser nunca vê as chaves) |
 | Base de dados | PostgreSQL no Supabase |
 | Testes | xUnit com `WebApplicationFactory` |
 
@@ -83,11 +84,11 @@ A API serve também o frontend, por isso a aplicação inteira abre num só ende
 ```
 Avarias.sln                    solução .NET (API + testes)
 src/Avarias.Api/               API ASP.NET Core
-├─ Controllers/                Auth, Catalogos, Reportes, Admin
-├─ Models/                     entidades da base de dados
+├─ Controllers/                Auth, Catalogos, Avarias, Admin
+├─ Models/                     uma classe por tabela do Supabase
 ├─ Dtos/                       pedidos e respostas da API
-├─ Data/                       AppDbContext e dados iniciais
-├─ Services/                   tokens e envio de email
+├─ Data/                       mapeamento das tabelas (AppDbContext)
+├─ Services/                   Supabase Auth e fotografias
 ├─ Extensions/                 configuração do arranque
 └─ wwwroot/                    frontend
    ├─ *.html                   uma página por ecrã
@@ -119,7 +120,7 @@ erDiagram
 
 | Tabela | Para quê | Campos principais |
 |---|---|---|
-| `utilizadores` | contas (o `id` liga à autenticação do Supabase) | `nome_utilizador`, `permissao_id` |
+| `utilizadores` | nome e perfil de cada conta (o `id` é o da conta no Supabase Auth) | `nome_utilizador`, `permissao_id` |
 | `tipos_utilizador` | perfis | `tipo_utilizador` (Professor, Biblioteca, Técnico) |
 | `salas` | salas e outros espaços | `nr_sala`, `tipo_sala` |
 | `tipos_equipamento` | categorias de equipamento | `desc_tipo` |
@@ -128,62 +129,64 @@ erDiagram
 | `avarias` | avarias reportadas | `desc_geral`, `id_utilizador`, `id_equipamento`, `estado_id`, `data_avaria`, `foto_avaria`, `data_resolucao`, `desc_resolucao`, `foto_resolucao` |
 | `historico_avarias` | cópia de cada registo, com os dados da altura (sala, equipamento, estado) | `avaria_id`, `desc_detalhes`, `desc_estado`, `data_registo` e cópias dos campos da avaria |
 
-> **Atenção:** o código da API ainda usa o modelo anterior (tabelas `reportes`, `locais`, `tipos_avaria`, login próprio com email e palavra-passe). Tem de ser adaptado a esta estrutura antes de ligar a API a esta base de dados. Ver [Estado do projeto](#estado-do-projeto).
+A API não cria nem altera tabelas: só garante os perfis em `tipos_utilizador` e os estados em `estados_avarias`. Detalhe em [docs/base-de-dados.md](docs/base-de-dados.md).
 
 ## Como correr
 
-**Requisitos:** [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) e um projeto Supabase. Os comandos correm a partir da raiz do projeto, em PowerShell.
+**Requisitos:** [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) e o projeto Supabase com as tabelas acima. Os comandos correm a partir da raiz do projeto, em PowerShell.
 
-**1. Ligação à base de dados.** No Supabase, em **Connect → Direct → Session pooler**, copiar a ligação em formato .NET. Depois:
+**1. Segredos.** O script pede quatro valores e guarda-os em `dotnet user-secrets`, fora do repositório:
 
 ```powershell
 .\scripts\configurar-segredos.ps1
 ```
 
-O script pede a ligação e gera a chave JWT. Os dois ficam guardados em `dotnet user-secrets`, fora do repositório. A palavra-passe da base de dados nunca vai para o `appsettings.json`.
+| Pedido | Onde está no Supabase |
+|---|---|
+| Ligação à base de dados | **Connect → Direct → Session pooler**, formato .NET, com a palavra-passe da base de dados |
+| URL do projeto | **Project Settings → Data API** (`https://….supabase.co`) |
+| Chave pública | **Project Settings → API Keys** → *publishable* (ou *anon*) |
+| Chave secreta | **Project Settings → API Keys** → *secret* (ou *service_role*). Nunca a partilhe nem a ponha no código |
 
-**2. Arrancar** (API e frontend em http://localhost:5080):
+**2. Primeira conta de técnico.** No Supabase, **Authentication → Users → Add user** (com *Auto Confirm User*), e depois correr [database/scripts/criar-utilizador.sql](database/scripts/criar-utilizador.sql) no **SQL Editor** com o email e o nome. As outras contas criam-se no Backoffice da aplicação.
+
+**3. Link de recuperação.** Em **Authentication → URL Configuration → Redirect URLs**, acrescentar `http://localhost:5080/repor-password.html`.
+
+**4. Arrancar** (API e frontend em http://localhost:5080):
 
 ```powershell
 .\scripts\correr-api.ps1
 ```
 
-**3. Testes** (não precisam de base de dados):
+**Testes** (não precisam do Supabase):
 
 ```powershell
 .\scripts\testar.ps1
 ```
 
-**Modo demo.** Só o frontend, com dados de exemplo simulados no browser, sem API nem base de dados. Depois de correr o comando, abrir http://localhost:5173/login.html?demo=1:
+**Modo demo.** Só o frontend, com dados de exemplo simulados no browser, sem API nem Supabase. Depois de correr o comando, abrir http://localhost:5173/login.html?demo=1 e entrar com `professor@escola.test`, `biblioteca@escola.test` ou `tecnico@escola.test` (qualquer palavra-passe):
 
 ```powershell
 .\scripts\correr-demo.ps1
 ```
 
-| Perfil (contas de teste) | Email | Palavra-passe |
-|---|---|---|
-| Professor | professor@escola.test | Professor123! |
-| Biblioteca | biblioteca@escola.test | Biblioteca123! |
-| Técnico | tecnico@escola.test | Tecnico123! |
-
-Estas contas existem só em desenvolvimento e no modo demo.
-
 ## Estado do projeto
 
 Feito:
 
-- [x] Frontend completo: login, recuperação de palavra-passe, painel com filtros, registar avaria com fotografia, detalhe com histórico, backoffice
-- [x] API com regras de acesso por perfil e testes
-- [x] Design system aplicado a toda a interface
+- [x] Base de dados no Supabase e API adaptada às tabelas
+- [x] Login com Supabase Auth, sessão renovada automaticamente, recuperação de palavra-passe por email
+- [x] Registar avaria (sala → equipamento, descrição, fotografia)
+- [x] Painel com contagens por estado, pesquisa e filtros
+- [x] Gestão técnica: estado, resolução e fotografia da resolução, com histórico
+- [x] Backoffice: contas, salas, equipamentos e tipos de equipamento
+- [x] Regras de acesso por perfil, com testes automáticos
 - [x] Modo demo sem base de dados
-- [x] Base de dados criada no Supabase
 
 Por fazer:
 
-- [ ] Adaptar a API e o frontend à nova estrutura da base de dados
-- [ ] Decidir a autenticação: Supabase Auth (como sugere `utilizadores.id`) ou login próprio da API
 - [ ] Testar ponta a ponta contra o Supabase
-- [ ] Configurar o envio de emails (SMTP)
+- [ ] Configurar SMTP próprio no Supabase para os emails de recuperação
 - [ ] Testar num telemóvel real
 - [ ] Publicar ([docs/deploy.md](docs/deploy.md))
 
@@ -193,7 +196,7 @@ Por fazer:
 |---|---|
 | [docs/arquitetura.md](docs/arquitetura.md) | Estrutura das pastas e onde pôr código novo |
 | [docs/api.md](docs/api.md) | Endpoints da API |
-| [docs/base-de-dados.md](docs/base-de-dados.md) | Modelo de dados da API |
+| [docs/base-de-dados.md](docs/base-de-dados.md) | Tabelas, regras e como mudar o esquema |
 | [docs/permissoes-e-seguranca.md](docs/permissoes-e-seguranca.md) | Perfis e proteções |
 | [docs/design-system.md](docs/design-system.md) | Cores, letra e componentes |
 | [docs/deploy.md](docs/deploy.md) | Pôr em produção |

@@ -1,6 +1,6 @@
 namespace Avarias.Api.Models;
 
-// Os enums são guardados como texto na base de dados (ver AppDbContext).
+/// <summary>Perfis da aplicação. Na base de dados estão como texto em tipos_utilizador.</summary>
 public enum Perfil
 {
     Professor,

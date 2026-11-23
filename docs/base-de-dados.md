@@ -1,48 +1,51 @@
 # Base de dados
 
-PostgreSQL (Supabase). O modelo EF Core em `src/Avarias.Api/Data/AppDbContext.cs` é a **única definição do esquema**; os nomes ficam em `snake_case`. No arranque, `EnsureCreated` cria as tabelas se não existirem e o `DbSeeder` insere os dados iniciais.
+PostgreSQL no Supabase. As tabelas foram criadas no Supabase e são a **fonte da verdade**: a API não cria nem altera o esquema. A estrutura atual está exportada em [database/esquema-supabase.csv](../database/esquema-supabase.csv) e o mapeamento está em `src/Avarias.Api/Data/AppDbContext.cs`.
 
 ## Tabelas
 
 ```mermaid
 erDiagram
-    utilizadores ||--o{ reportes : "autor"
-    locais ||--o{ equipamentos : "tem"
-    locais ||--o{ reportes : "onde"
-    equipamentos |o--o{ reportes : "o quê"
-    tipos_avaria ||--o{ reportes : "tipo"
-    reportes ||--o{ historico_reportes : "alterações"
-    reportes ||--o{ comentarios : "conversa"
-    utilizadores ||--o{ tokens_recuperacao : "recuperação"
+    auth_users ||--|| utilizadores : "id"
+    tipos_utilizador ||--o{ utilizadores : "permissao_id"
+    utilizadores ||--o{ avarias : "id_utilizador"
+    salas ||--o{ equipamentos : "nr_sala"
+    tipos_equipamento ||--o{ equipamentos : "id_tipo"
+    equipamentos ||--o{ avarias : "id_equipamento"
+    estados_avarias ||--o{ avarias : "estado_id"
+    avarias ||--o{ historico_avarias : "avaria_id"
+    utilizadores ||--o{ historico_avarias : "id_utilizador"
 ```
 
-| Tabela | Campos principais | Regras |
+| Tabela | Para quê | Como a aplicação a usa |
 |---|---|---|
-| `utilizadores` | nome, email, password_hash, perfil, ativo | email único e em minúsculas; perfil em `Professor`, `Biblioteca`, `Tecnico` |
-| `locais` | nome, e_biblioteca | nome único |
-| `equipamentos` | nome, local_id | |
-| `tipos_avaria` | nome | nome único |
-| `reportes` | titulo, descricao, local/equipamento/tipo, urgencia, prioridade, estado, foto_ficheiro, autor_id, resolucao, datas | FKs com `Restrict` (não se apaga um local com reportes) |
-| `historico_reportes` | campo, valor_anterior, valor_novo, utilizador_id, data | apagado em cascata com o reporte |
-| `comentarios` | texto, autor_id, criado_em | apagado em cascata com o reporte |
-| `tokens_recuperacao` | token_hash (SHA-256), expira_em, usado | uso único, 1 h |
+| `auth.users` | contas do Supabase Auth (email, palavra-passe, bloqueio) | só leitura (email e `banned_until`); alterações pela API de administração do Supabase |
+| `utilizadores` | nome e perfil de cada conta (`id` = `auth.users.id`) | sem linha aqui a pessoa não entra |
+| `tipos_utilizador` | perfis | o texto tem de ser Professor, Biblioteca ou Técnico (com ou sem acento) |
+| `salas` | salas (`nr_sala` é a chave) | `tipo_sala` = "Biblioteca" marca os espaços da biblioteca |
+| `tipos_equipamento` | categorias de equipamento | filtro do painel |
+| `equipamentos` | equipamentos de cada sala | `nr_serie` único |
+| `estados_avarias` | estados | "Pendente" é o inicial; "Resolvido" exige resolução. Comparados sem acentos nem maiúsculas |
+| `avarias` | avarias registadas | a sala vem do equipamento |
+| `historico_avarias` | cópia da avaria em cada momento | uma linha na criação e em cada alteração; `desc_detalhes` diz o que mudou |
 
-Enums guardados como texto: `Estado` (Pendente, EmAnalise, EmResolucao, Resolvido), `Urgencia` (Baixa, Media, Alta), `Prioridade` (Baixa, Media, Alta, Critica).
+As fotografias não ficam na base de dados: estão na pasta `uploads/` do servidor e as colunas `foto_avaria` / `foto_resolucao` guardam só o nome do ficheiro.
 
-As fotos **não** ficam na base de dados: estão na pasta `uploads/` (configurável em `Uploads:Pasta`), com nome gerado pelo servidor.
+## O que a API garante no arranque
+
+`Data/DbSeeder.cs` (desligável com `BaseDeDados:GarantirDadosBase = false`):
+
+- acrescenta a `tipos_utilizador` os perfis que faltarem (Professor, Biblioteca, Técnico);
+- se `estados_avarias` estiver vazia, cria Pendente, Em análise, Em resolução, Resolvido.
+
+Nada mais é escrito sem uma ação de um utilizador.
 
 ## Mudar o esquema
 
-`EnsureCreated` não altera tabelas que já existam. Enquanto não houver migrações:
+1. Mudar a tabela no Supabase (Table Editor ou SQL Editor) e guardar o SQL em `database/scripts/` com a data no nome.
+2. Atualizar a classe em `Models/` e o mapeamento em `Data/AppDbContext.cs`.
+3. Exportar de novo `database/esquema-supabase.csv` com a consulta do [database/README.md](../database/README.md).
 
-1. Mudar o modelo (`Models/`) e `AppDbContext`.
-2. Em desenvolvimento: apagar as tabelas e arrancar de novo.
-3. Em produção: escrever o SQL (`alter table …`) em `database/scripts/` e corrê-lo no SQL Editor do Supabase.
+## Segurança das tabelas (RLS)
 
-Quando o projeto estiver em produção a sério, passar para migrações EF (`dotnet ef migrations add Inicial`) e trocar `EnsureCreated` por `Migrate()` em `Extensions/WebApplicationExtensions.cs`.
-
-## Scripts
-
-| Ficheiro | Para quê |
-|---|---|
-| `database/scripts/criar-utilizador.sql` | criar a 1.ª conta de técnico em produção (bcrypt via pgcrypto) |
+A API liga-se com o utilizador `postgres`, que ignora as políticas RLS. O browser nunca fala diretamente com a base de dados. Se isso mudar, é preciso ativar RLS e criar políticas em todas as tabelas.

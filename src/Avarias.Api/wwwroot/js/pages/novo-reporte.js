@@ -1,4 +1,5 @@
-// Formulário de novo reporte (Professor e Biblioteca). Data e autor são definidos pelo servidor.
+// Registar avaria (Professor e Biblioteca): sala → equipamento, descrição e fotografia.
+// A data, o estado inicial (Pendente) e quem regista são definidos pelo servidor.
 import { api } from '../core/api.js';
 import { autenticar, montarCabecalho, mostrar, preencher } from '../core/common.js';
 
@@ -7,6 +8,9 @@ const MAX_FOTO = 5 * 1024 * 1024;
 const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
 let CAT = null;
 let previaUrl = null;
+
+const salaAtual = () => CAT?.salas.find((s) => s.nrSala === $('sala').value);
+const rotuloEquip = (q) => (q.nrSerie ? `${q.descricao} (nº ${q.nrSerie})` : q.descricao);
 
 function escolherFoto(file) {
   mostrar($('erro'), '');
@@ -24,35 +28,44 @@ function escolherFoto(file) {
   $('previa').src = previaUrl ?? '';
 }
 
+function escolherSala() {
+  const sala = salaAtual();
+  const equipamentos = sala?.equipamentos ?? [];
+  $('equip').disabled = !equipamentos.length;
+  preencher($('equip'), equipamentos.map((q) => [q.id, rotuloEquip(q)]),
+    !sala ? 'Escolha primeiro a sala' : (equipamentos.length ? 'Escolha…' : 'Esta sala não tem equipamentos'));
+  mostrarTipo();
+}
+
+function mostrarTipo() {
+  const q = salaAtual()?.equipamentos.find((x) => x.id === $('equip').value);
+  $('equip-info').hidden = !q?.tipo;
+  $('equip-info').textContent = q?.tipo ? `Tipo: ${q.tipo}` : '';
+}
+
 async function submeter(e) {
   e.preventDefault();
   mostrar($('erro'), '');
-  const titulo = $('titulo').value.trim();
   const descricao = $('descricao').value.trim();
-  if (titulo.length < 3) return mostrar($('erro'), 'Indique um título (mínimo 3 caracteres).');
-  if (!$('local').value) return mostrar($('erro'), 'Escolha o local da avaria.');
-  if (!$('tipo').value) return mostrar($('erro'), 'Escolha o tipo de avaria.');
-  if (descricao.length < 10) return mostrar($('erro'), 'Descreva o problema (mínimo 10 caracteres).');
+  if (!$('sala').value) return mostrar($('erro'), 'Escolha a sala.');
+  if (!$('equip').value) return mostrar($('erro'), 'Escolha o equipamento avariado.');
+  if (descricao.length < 10) return mostrar($('erro'), 'Descreva a avaria (mínimo 10 caracteres).');
 
   const fd = new FormData();
-  fd.append('titulo', titulo);
   fd.append('descricao', descricao);
-  fd.append('localId', $('local').value);
-  if ($('equip').value) fd.append('equipamentoId', $('equip').value);
-  fd.append('tipoId', $('tipo').value);
-  fd.append('urgencia', $('urg').value);
+  fd.append('equipamentoId', $('equip').value);
   const foto = $('foto').files[0];
   if (foto) fd.append('foto', foto);
 
   $('enviar').disabled = true;
-  $('enviar').textContent = 'A enviar…';
+  $('enviar').textContent = 'A registar…';
   try {
-    const r = await api('/reportes', { method: 'POST', form: fd });
+    const r = await api('/avarias', { method: 'POST', form: fd });
     location.replace(`reporte.html?id=${r.id}`);
   } catch (err) {
     mostrar($('erro'), err.message);
     $('enviar').disabled = false;
-    $('enviar').textContent = 'Enviar reporte';
+    $('enviar').textContent = 'Registar avaria';
   }
 }
 
@@ -62,25 +75,16 @@ async function main() {
   montarCabecalho(user, 'novo');
   $('quem').textContent = user.nome;
 
-  preencher($('urg'), [['Baixa', 'Baixa'], ['Media', 'Média'], ['Alta', 'Alta']], null);
-  $('urg').value = 'Media';
-  preencher($('equip'), [], 'Escolha primeiro o local');
-  $('equip').disabled = true;
-
   try {
     CAT = await api('/catalogos');
-    preencher($('local'), CAT.locais.map((l) => [l.id, l.nome]), 'Escolha…');
-    preencher($('tipo'), CAT.tipos.map((t) => [t.id, t.nome]), 'Escolha…');
+    preencher($('sala'), CAT.salas.map((s) => [s.nrSala, `${s.nrSala} (${s.tipoSala})`]), 'Escolha…');
   } catch (err) {
     mostrar($('erro'), err.message);
   }
+  escolherSala();
 
-  $('local').addEventListener('change', () => {
-    const loc = CAT?.locais.find((l) => String(l.id) === $('local').value);
-    $('equip').disabled = !loc;
-    preencher($('equip'), (loc?.equipamentos ?? []).map((q) => [q.id, q.nome]),
-      loc ? 'Não especificado' : 'Escolha primeiro o local');
-  });
+  $('sala').addEventListener('change', escolherSala);
+  $('equip').addEventListener('change', mostrarTipo);
   $('foto').addEventListener('change', () => escolherFoto($('foto').files[0] ?? null));
   $('form').addEventListener('submit', submeter);
 }

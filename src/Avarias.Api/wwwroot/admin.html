@@ -15,13 +15,13 @@
   <main class="page">
     <div>
       <h1 class="page-title">Backoffice</h1>
-      <p class="bo-desc">Gira as contas, os locais com os seus equipamentos e os tipos de avaria.</p>
+      <p class="bo-desc">Gira as contas, as salas com os seus equipamentos e os tipos de equipamento.</p>
     </div>
 
     <div class="bo-tabs" role="tablist" aria-label="Secções do backoffice">
       <button type="button" class="bo-tab" role="tab" id="tab-contas" aria-controls="sec-contas" aria-selected="true">Contas <span id="n-contas" class="bo-count"></span></button>
-      <button type="button" class="bo-tab" role="tab" id="tab-locais" aria-controls="sec-locais" aria-selected="false">Locais <span id="n-locais" class="bo-count"></span></button>
-      <button type="button" class="bo-tab" role="tab" id="tab-tipos" aria-controls="sec-tipos" aria-selected="false">Tipos de avaria <span id="n-tipos" class="bo-count"></span></button>
+      <button type="button" class="bo-tab" role="tab" id="tab-salas" aria-controls="sec-salas" aria-selected="false">Salas <span id="n-salas" class="bo-count"></span></button>
+      <button type="button" class="bo-tab" role="tab" id="tab-tipos" aria-controls="sec-tipos" aria-selected="false">Tipos de equipamento <span id="n-tipos" class="bo-count"></span></button>
     </div>
 
     <div id="erro" role="alert"></div>
@@ -45,28 +45,28 @@
       </div>
     </section>
 
-    <section id="sec-locais" role="tabpanel" aria-labelledby="tab-locais" class="bo-card" hidden>
+    <section id="sec-salas" role="tabpanel" aria-labelledby="tab-salas" class="bo-card" hidden>
       <div class="bo-card-head">
         <div>
-          <h2>Locais e equipamentos</h2>
-          <p>Os locais e equipamentos que aparecem no formulário de reporte.</p>
+          <h2>Salas e equipamentos</h2>
+          <p>As salas e os equipamentos que aparecem no formulário de registar avaria.</p>
         </div>
-        <button id="novo-local" class="bo-btn bo-btn--primary" type="button">Novo local</button>
+        <button id="nova-sala" class="bo-btn bo-btn--primary" type="button">Nova sala</button>
       </div>
-      <ul id="lista-locais" class="bo-locais"></ul>
+      <ul id="lista-salas" class="bo-locais"></ul>
     </section>
 
     <section id="sec-tipos" role="tabpanel" aria-labelledby="tab-tipos" class="bo-card" hidden>
       <div class="bo-card-head">
         <div>
-          <h2>Tipos de avaria</h2>
-          <p>As categorias que se escolhem ao reportar.</p>
+          <h2>Tipos de equipamento</h2>
+          <p>As categorias dos equipamentos (computador, projetor…).</p>
         </div>
         <button id="novo-tipo" class="bo-btn bo-btn--primary" type="button">Novo tipo</button>
       </div>
       <div class="bo-table-wrap">
         <table class="bo-table">
-          <thead><tr><th>Nome</th><th><span class="bo-sr">Ações</span></th></tr></thead>
+          <thead><tr><th>Descrição</th><th><span class="bo-sr">Ações</span></th></tr></thead>
           <tbody id="lista-tipos"></tbody>
         </table>
       </div>

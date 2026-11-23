@@ -1,11 +1,19 @@
 // Página repor-password.html
-import { api } from '../core/api.js';
+// O link do email do Supabase abre esta página com os dados depois do "#":
+//   #access_token=...&type=recovery          → link válido
+//   #error=access_denied&error_code=otp_expired&error_description=... → link inválido ou expirado
+import { api, demoAtivo } from '../core/api.js';
 import { mostrar } from '../core/common.js';
 
 const $ = (id) => document.getElementById(id);
-const token = new URLSearchParams(location.search).get('token') ?? '';
+const hash = new URLSearchParams(location.hash.slice(1));
+const accessToken = hash.get('access_token') ?? (demoAtivo ? 'demo' : '');
 
-if (!token) {
+// Tira o token do endereço (não fica no histórico nem em capturas de ecrã).
+if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+
+if (!accessToken || hash.get('error')) {
+  if (hash.get('error_code') === 'otp_expired') $('sem-token-msg').textContent = 'O link de recuperação expirou. Peça um novo.';
   $('sem-token').hidden = false;
 } else {
   $('form').hidden = false;
@@ -20,7 +28,7 @@ $('form').addEventListener('submit', async (e) => {
 
   $('enviar').disabled = true;
   try {
-    const r = await api('/auth/reset-password', { method: 'POST', json: { token, novaPassword: pw } });
+    const r = await api('/auth/reset-password', { method: 'POST', json: { accessToken, novaPassword: pw } });
     $('aviso').textContent = r.message;
     $('form').hidden = true;
     $('feito').hidden = false;
